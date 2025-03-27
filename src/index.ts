@@ -2,17 +2,18 @@ import { Hono } from "hono";
 import { serve } from "std/http/server.ts";
 import type { Context } from "hono";
 import { DiscordController } from "./controllers/discord.controller.ts";
-import { GuildController } from "./controllers/guild.controller.ts";
+import { OAuthController } from "./controllers/oauth.controller.ts";
 import { DebugController } from "./controllers/debug.controller.ts";
 import { validateEnv } from "./types/env.ts";
 
 const app = new Hono();
 
+// OAuth2エンドポイント
+app.get("/oauth/login", OAuthController.handleLogin);
+app.get("/oauth/callback", OAuthController.handleCallback);
+
 // Discord スラッシュコマンドのエンドポイント
 app.post("/discord/commands", DiscordController.handleLiveRegister);
-
-// Discord Guild イベントのエンドポイント
-app.post("/discord/guild", GuildController.handleGuildCreate);
 
 // デバッグ用エンドポイント
 app.get("/debug/kv", DebugController.showKvContents);

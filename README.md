@@ -4,10 +4,10 @@ Twitchの配信開始/終了をDiscordで通知するBotです。
 
 ## Features
 
-- サーバーへのBot追加時に自動でコマンドを登録
+- OAuth2による安全なBot認証とセットアップ
 - `/live-register` コマンドでTwitchアカウントとDiscordアカウントを連携
 - 配信開始時に自動で通知メッセージを送信
-- 配信終了時にメッセージにリアクションを追加
+- 配信終了時にメッセージにリアクション追加
 
 ## Setup
 
@@ -27,17 +27,13 @@ Twitchの配信開始/終了をDiscordで通知するBotです。
   - `Server Members Intent`
   - `Message Content Intent`
 
-3. Botをサーバーに追加
-```
-https://discord.com/oauth2/authorize?client_id=1353969216751013919&permissions=2147485760&integration_type=0&scope=bot
-```
-
-このURLにアクセスして、Botを追加したいDiscordサーバーを選択してください。
-Botの追加時に自動的にスラッシュコマンドが登録されます。
-
-必要な権限:
-- メッセージの送信
-- メッセージへのリアクション追加
+3. OAuth2の設定
+- 「OAuth2」タブで以下を設定：
+  - Redirects: `http://localhost:8000/oauth/callback`
+  - Scopes: `bot`, `applications.commands`
+  - Bot Permissions:
+    - Send Messages
+    - Add Reactions
 
 ### Twitch Setup
 
@@ -86,6 +82,11 @@ cp .env.example .env
 deno task dev
 ```
 
+4. Botのインストール
+- ブラウザで `http://localhost:8000/oauth/login` にアクセス
+- Discordの認証画面でBotを追加したいサーバーを選択
+- 自動的にスラッシュコマンドが登録されます
+
 ## Available Commands
 
 ### /live-register
@@ -98,33 +99,31 @@ Twitchアカウントの配信通知を登録します。
 
 ## API Endpoints
 
+### OAuth2 Endpoints
+
+```
+GET /oauth/login
+```
+Discord OAuth2認証を開始します。
+
+```
+GET /oauth/callback
+```
+認証後のコールバックを処理し、スラッシュコマンドを登録します。
+
 ### Discord Command Endpoint
+
 ```
 POST /discord/commands
 ```
 Discordのスラッシュコマンドを受け付けます。
 
-### Discord Guild Event Endpoint
-```
-POST /discord/guild
-```
-新しいサーバーへのBot追加イベントを処理します。
-
 ### Debug Endpoint
+
 ```
 GET /debug/kv
 ```
 KVストアの現在の状態を確認できます。
-
-## 補足情報
-
-### スラッシュコマンドの手動登録
-
-通常は不要ですが、必要な場合は以下のコマンドで手動登録が可能です：
-
-```bash
-deno task register-commands
-```
 
 ## Sequence Diagrams
 
