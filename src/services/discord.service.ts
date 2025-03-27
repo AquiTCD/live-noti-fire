@@ -1,47 +1,29 @@
 import { getEnvVar } from "../types/env.ts";
+import {
+  APIInteraction,
+  APIInteractionResponse,
+  InteractionType,
+  GatewayIntentBits,
+  InteractionResponseType,
+  MessageFlags,
+  APIApplicationCommandInteractionData,
+  APIApplicationCommandInteractionDataOption,
+} from "discord-api-types/v10";
 
-interface DiscordInteraction {
-  type: number;
-  data: {
-    name: string;
-    options?: Array<{
-      name: string;
-      type: number;
-      value: string;
-    }>;
-  };
-  user?: {
-    id: string;
-  };
-}
-
-interface InteractionResponse {
-  type: number;
-  data: {
-    content: string;
-    flags?: number;
-  };
-}
+type DiscordInteraction = APIInteraction;
+type InteractionResponse = APIInteractionResponse;
 
 export class DiscordService {
   private static readonly API_VERSION = "10";
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
   private static readonly BOT_TOKEN = getEnvVar("DISCORD_BOT_TOKEN");
 
-  // Discordが必要とするIntents
-  private static readonly INTENTS = {
-    GUILDS: 1 << 0,
-    GUILD_MESSAGES: 1 << 9,
-    GUILD_MEMBERS: 1 << 1,
-    MESSAGE_CONTENT: 1 << 15,
-  };
-
   // 必要なIntentsの合計値
   private static readonly REQUIRED_INTENTS =
-    DiscordService.INTENTS.GUILDS |
-    DiscordService.INTENTS.GUILD_MESSAGES |
-    DiscordService.INTENTS.GUILD_MEMBERS |
-    DiscordService.INTENTS.MESSAGE_CONTENT;
+    GatewayIntentBits.Guilds |
+    GatewayIntentBits.GuildMessages |
+    GatewayIntentBits.GuildMembers |
+    GatewayIntentBits.MessageContent;
 
   /**
    * Discord APIにリクエストを送信
@@ -77,10 +59,10 @@ export class DiscordService {
     content: { message: string; error?: boolean }
   ) {
     const response: InteractionResponse = {
-      type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: content.message,
-        flags: content.error ? 64 : undefined, // EPHEMERAL flag
+        flags: content.error ? MessageFlags.Ephemeral : undefined,
       },
     };
 
@@ -144,7 +126,7 @@ export class DiscordService {
     userId?: string;
     twitchId?: string;
   } {
-    if (interaction.type !== 2) { // APPLICATION_COMMAND
+    if (interaction.type !== InteractionType.ApplicationCommand) {
       return { valid: false, error: "Invalid interaction type" };
     }
 
@@ -158,7 +140,7 @@ export class DiscordService {
     }
 
     const twitchId = interaction.data.options?.find(
-      opt => opt.name === "twitch_id"
+      (opt: APIApplicationCommandInteractionDataOption) => opt.name === "twitch_id"
     )?.value;
 
     if (!twitchId) {
