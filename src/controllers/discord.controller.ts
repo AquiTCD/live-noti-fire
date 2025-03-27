@@ -4,6 +4,22 @@ import { userRepository } from "../repositories/user.repository.ts";
 import { TwitchService } from "../services/twitch.service.ts";
 import { DiscordService } from "../services/discord.service.ts";
 import { validateEnv, getEnvVar } from "../types/env.ts";
+import { GuildRepository } from "../repositories/guild.repository.ts";
+
+interface DiscordInteraction {
+  id: string;
+  token: string;
+  type: number;
+  guild_id?: string;
+  data: {
+    name: string;
+    options?: Array<{
+      name: string;
+      type: number;
+      value: string;
+    }>;
+  };
+}
 
 export class DiscordController {
   private static readonly API_VERSION = "10";
@@ -21,6 +37,18 @@ export class DiscordController {
             name: "twitch_username",
             description: "Twitchのユーザー名",
             type: 3, // STRING
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "live-notify",
+        description: "配信通知を送信するチャンネルを設定します",
+        options: [
+          {
+            name: "channel",
+            description: "通知を送信するチャンネル",
+            type: 7, // CHANNEL
             required: true,
           },
         ],
@@ -116,7 +144,11 @@ export class DiscordController {
 
       // コマンドの処理
       if (interaction.type === 2) {
+        if (interaction.data.name === "live-register") {
         return await this.handleLiveRegister(c);
+        } else if (interaction.data.name === "live-notify") {
+          return await this.handleLiveNotify(c, interaction);
+        }
       }
 
       return c.json({ error: "Invalid interaction type" }, 400);
@@ -251,6 +283,89 @@ export class DiscordController {
       };
 
       return c.json(response, 500);
+    }
+  }
+
+  /**
+   * /live-notify スラッシュコマンドの処理
+   */
+  static async handleLiveNotify(c: Context, interaction: DiscordInteraction) {
+    try {
+      if (!interaction.guild_id) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "このコマンドはサーバー内でのみ使用できます。",
+            error: true,
+          }
+        );
+        return c.json({ error: "Guild ID not found" }, 400);
+      }
+
+      const channelOption = interaction.data.options?.find(opt => opt.name === "channel");
+      if (!channelOption) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "チャンネルを指定してください。",
+            error: true,
+          }
+        );
+        return c.json({ error: "Channel not specified" }, 400);
+      }
+
+      const success = await GuildRepository.setNotifyChannel(
+        interaction.guild_id,
+        channelOption.value
+      );
+
+      if (!success) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "チャンネルの設定に失敗しました。",
+            error: true,
+          }
+        );
+        return c.json({ error: "Failed to set notify channel" }, 500);
+      }
+
+      await DiscordService.respondToInteraction(
+        interaction.id,
+        interaction.token,
+        {
+          message: "配信通知チャンネルを設定しました。",
+          error: false,
+        }
+      );
+
+      return c.json({
+        message: "Notification channel set successfully",
+        guildId: interaction.guild_id,
+        channelId: channelOption.value,
+      }, 200);
+
+    } catch (error) {
+      console.error("Error in handleLiveNotify:", error);
+
+      if (interaction) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "エラーが発生しました。",
+            error: true,
+          }
+        );
+      }
+
+      return c.json({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }, 500);
     }
   }
 }
