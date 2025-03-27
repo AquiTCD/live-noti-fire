@@ -7,6 +7,51 @@ import { validateEnv } from "../types/env.ts";
 
 export class DiscordController {
   /**
+   * Discord Interactions エンドポイントの処理
+   */
+  static async handleInteraction(c: Context) {
+    try {
+      const signature = c.req.header('x-signature-ed25519');
+      const timestamp = c.req.header('x-signature-timestamp');
+      const rawBody = await c.req.text();
+
+      if (!signature || !timestamp) {
+        return c.json({ error: "Missing request headers" }, 401);
+      }
+
+      const verification = await DiscordService.verifyInteraction(
+        signature,
+        timestamp,
+        rawBody
+      );
+
+      if (!verification.isValid) {
+        return c.json({ error: "Invalid request signature" }, 401);
+      }
+
+      const interaction = verification.interaction;
+      if (!interaction) {
+        return c.json({ error: "Invalid interaction data" }, 400);
+      }
+
+      // PING リクエストの処理
+      if (interaction.type === 1) {
+        return c.json(DiscordService.createPingResponse());
+      }
+
+      // コマンドの処理
+      if (interaction.type === 2) {
+        return await this.handleLiveRegister(c);
+      }
+
+      return c.json({ error: "Invalid interaction type" }, 400);
+    } catch (error) {
+      console.error("Error handling interaction:", error);
+      return c.json({ error: "Internal server error" }, 500);
+    }
+  }
+
+  /**
    * /live-register スラッシュコマンドの処理
    */
   static async handleLiveRegister(c: Context) {

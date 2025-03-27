@@ -4,6 +4,7 @@ export interface Env {
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
   DISCORD_BOT_TOKEN: string;
+  DISCORD_PUBLIC_KEY: string;
   TWITCH_CLIENT_ID: string;
   TWITCH_CLIENT_SECRET: string;
 }
@@ -12,6 +13,7 @@ export const REQUIRED_ENV_VARS = [
   'DISCORD_CLIENT_ID',
   'DISCORD_CLIENT_SECRET',
   'DISCORD_BOT_TOKEN',
+  'DISCORD_PUBLIC_KEY',
   'TWITCH_CLIENT_ID',
   'TWITCH_CLIENT_SECRET',
 ] as const;

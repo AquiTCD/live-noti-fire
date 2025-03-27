@@ -8,7 +8,8 @@
     "hono": "https://deno.land/x/hono@v3.12.0/mod.ts",
     "std/": "https://deno.land/std@0.218.2/",
     "std/dotenv": "https://deno.land/std@0.218.2/dotenv/mod.ts",
-    "discord-api-types/v10": "npm:discord-api-types@0.37.76"
+    "discord-api-types/v10": "npm:discord-api-types@0.37.76",
+    "discord-interactions": "npm:discord-interactions@3.4.0"
   },
   "compilerOptions": {
     "strict": true

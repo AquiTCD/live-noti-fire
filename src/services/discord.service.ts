@@ -2,28 +2,58 @@ import { getEnvVar } from "../types/env.ts";
 import {
   APIInteraction,
   APIInteractionResponse,
-  InteractionType,
-  GatewayIntentBits,
-  InteractionResponseType,
   MessageFlags,
-  APIApplicationCommandInteractionData,
   APIApplicationCommandInteractionDataOption,
 } from "discord-api-types/v10";
+import {
+  verifyKey,
+  InteractionType,
+  InteractionResponseType,
+  VerifyWithKeyParams,
+} from "discord-interactions";
 
 type DiscordInteraction = APIInteraction;
 type InteractionResponse = APIInteractionResponse;
+
+interface InteractionVerificationResult {
+  isValid: boolean;
+  interaction?: DiscordInteraction;
+}
 
 export class DiscordService {
   private static readonly API_VERSION = "10";
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
   private static readonly BOT_TOKEN = getEnvVar("DISCORD_BOT_TOKEN");
 
-  // 必要なIntentsの合計値
-  private static readonly REQUIRED_INTENTS =
-    GatewayIntentBits.Guilds |
-    GatewayIntentBits.GuildMessages |
-    GatewayIntentBits.GuildMembers |
-    GatewayIntentBits.MessageContent;
+  private static readonly PUBLIC_KEY = getEnvVar("DISCORD_PUBLIC_KEY");
+
+  /**
+   * Interactionリクエストの検証
+   */
+  static async verifyInteraction(
+    signature: string,
+    timestamp: string,
+    body: string
+  ): Promise<InteractionVerificationResult> {
+    try {
+      const isValid = await verifyKey(
+        body,
+        signature,
+        timestamp,
+        this.PUBLIC_KEY
+      );
+
+      if (!isValid) {
+        return { isValid: false };
+      }
+
+      const interaction = JSON.parse(body) as DiscordInteraction;
+      return { isValid: true, interaction };
+    } catch (error) {
+      console.error("Error verifying interaction:", error);
+      return { isValid: false };
+    }
+  }
 
   /**
    * Discord APIにリクエストを送信
@@ -48,6 +78,15 @@ export class DiscordService {
     }
 
     return response;
+  }
+
+  /**
+   * PINGリクエストに対する応答を生成
+   */
+  static createPingResponse(): InteractionResponse {
+    return {
+      type: InteractionType.Pong
+    };
   }
 
   /**

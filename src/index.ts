@@ -8,8 +8,8 @@ import { validateEnv } from "./types/env.ts";
 
 const app = new Hono();
 
-// Discord スラッシュコマンドのエンドポイント
-app.post("/discord/commands", DiscordController.handleLiveRegister);
+// Discord Interactions エンドポイント
+app.post("/discord/interactions", DiscordController.handleInteraction);
 
 // Discord Guild イベントのエンドポイント
 app.post("/discord/guild", GuildController.handleGuildCreate);
