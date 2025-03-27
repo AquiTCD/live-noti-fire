@@ -1,24 +1,23 @@
 import { Hono } from "https://deno.land/x/hono@v3.12.0/mod.ts";
 import { serve } from "https://deno.land/std@0.218.2/http/server.ts";
-import { rootHandler, healthHandler } from "./routes/root.ts";
-import {
-  createSampleHandler,
-  getSampleHandler,
-  listSamplesHandler
-} from "./routes/sample.ts";
+import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
+import { DiscordController } from "./controllers/discord.controller.ts";
 
 const app = new Hono();
 
-// ルートハンドラー
-app.get("/", rootHandler);
-app.get("/health", healthHandler);
+// Discord スラッシュコマンドのエンドポイント
+app.post("/discord/commands", DiscordController.handleLiveRegister);
 
-// サンプルデータ関連のハンドラー
-app.post("/sample", createSampleHandler);
-app.get("/sample/:id", getSampleHandler);
-app.get("/samples", listSamplesHandler);
+// Healthcheck エンドポイント
+app.get("/health", (c: Context) => {
+  return c.json({
+    status: "ok",
+    uptime: Math.floor(performance.now() / 1000),
+  });
+});
 
 if (import.meta.main) {
+  console.log("Server starting on http://localhost:8000");
   await serve(app.fetch, { port: 8000 });
 }
 
