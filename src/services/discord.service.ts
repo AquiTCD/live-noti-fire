@@ -28,6 +28,21 @@ export class DiscordService {
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
   private static readonly BOT_TOKEN = getEnvVar("DISCORD_CLIENT_SECRET");
 
+  // Discordが必要とするIntents
+  private static readonly INTENTS = {
+    GUILDS: 1 << 0,
+    GUILD_MESSAGES: 1 << 9,
+    GUILD_MEMBERS: 1 << 1,
+    MESSAGE_CONTENT: 1 << 15,
+  };
+
+  // 必要なIntentsの合計値
+  private static readonly REQUIRED_INTENTS =
+    DiscordService.INTENTS.GUILDS |
+    DiscordService.INTENTS.GUILD_MESSAGES |
+    DiscordService.INTENTS.GUILD_MEMBERS |
+    DiscordService.INTENTS.MESSAGE_CONTENT;
+
   /**
    * Discord APIにリクエストを送信
    */
