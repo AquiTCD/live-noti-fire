@@ -1,23 +1,65 @@
 import { getEnvVar } from "../types/env.ts";
-import {
-  APIInteraction,
-  APIInteractionResponse,
-  MessageFlags,
-  APIApplicationCommandInteractionDataOption,
-} from "discord-api-types/v10";
-import {
-  verifyKey,
-  InteractionType,
-  InteractionResponseType,
-  VerifyWithKeyParams,
-} from "discord-interactions";
 
-type DiscordInteraction = APIInteraction;
-type InteractionResponse = APIInteractionResponse;
+interface DiscordInteractionOption {
+  name: string;
+  type: number;
+  value: string;
+}
+
+interface DiscordInteraction {
+  type: number;
+  id: string;
+  token: string;
+  data: {
+    name: string;
+    options?: DiscordInteractionOption[];
+  };
+  user?: {
+    id: string;
+  };
+}
+
+interface InteractionResponse {
+  type: number;
+  data?: {
+    content?: string;
+    flags?: number;
+  };
+}
 
 interface InteractionVerificationResult {
   isValid: boolean;
   interaction?: DiscordInteraction;
+}
+
+// Discord Interaction Type constants
+const InteractionType = {
+  PING: 1,
+  APPLICATION_COMMAND: 2,
+} as const;
+
+// Discord Interaction Response Type constants
+const InteractionResponseType = {
+  PONG: 1,
+  CHANNEL_MESSAGE_WITH_SOURCE: 4,
+} as const;
+
+// Discord Message Flags
+const MessageFlags = {
+  EPHEMERAL: 64,
+} as const;
+
+/**
+ * 16進数文字列をUint8Arrayに変換
+ */
+function hexToUint8Array(hex: string): Uint8Array {
+  const pairs = hex.match(/[\dA-F]{2}/gi);
+  if (!pairs) {
+    throw new Error('Invalid hex string');
+  }
+  return new Uint8Array(
+    pairs.map((byte) => parseInt(byte, 16))
+  );
 }
 
 export class DiscordService {
@@ -36,11 +78,29 @@ export class DiscordService {
     body: string
   ): Promise<InteractionVerificationResult> {
     try {
-      const isValid = await verifyKey(
-        body,
-        signature,
-        timestamp,
-        this.PUBLIC_KEY
+      // ED25519による署名検証
+      const encoder = new TextEncoder();
+      const signatureUint8 = hexToUint8Array(signature);
+      const timestampBody = encoder.encode(timestamp + body);
+      const publicKeyUint8 = hexToUint8Array(this.PUBLIC_KEY);
+
+      // 公開鍵をインポート
+      const publicKey = await crypto.subtle.importKey(
+        'raw',
+        publicKeyUint8,
+        {
+          name: 'Ed25519',
+          namedCurve: 'Ed25519'
+        },
+        true,
+        ['verify']
+      );
+
+      const isValid = await crypto.subtle.verify(
+        { name: 'Ed25519' },
+        publicKey,
+        signatureUint8,
+        timestampBody
       );
 
       if (!isValid) {
@@ -85,7 +145,7 @@ export class DiscordService {
    */
   static createPingResponse(): InteractionResponse {
     return {
-      type: InteractionType.Pong
+      type: InteractionResponseType.PONG
     };
   }
 
@@ -98,10 +158,10 @@ export class DiscordService {
     content: { message: string; error?: boolean }
   ) {
     const response: InteractionResponse = {
-      type: InteractionResponseType.ChannelMessageWithSource,
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
         content: content.message,
-        flags: content.error ? MessageFlags.Ephemeral : undefined,
+        flags: content.error ? MessageFlags.EPHEMERAL : undefined,
       },
     };
 
@@ -165,7 +225,7 @@ export class DiscordService {
     userId?: string;
     twitchId?: string;
   } {
-    if (interaction.type !== InteractionType.ApplicationCommand) {
+    if (interaction.type !== InteractionType.APPLICATION_COMMAND) {
       return { valid: false, error: "Invalid interaction type" };
     }
 
@@ -179,7 +239,7 @@ export class DiscordService {
     }
 
     const twitchId = interaction.data.options?.find(
-      (opt: APIApplicationCommandInteractionDataOption) => opt.name === "twitch_id"
+      (opt: DiscordInteractionOption) => opt.name === "twitch_id"
     )?.value;
 
     if (!twitchId) {
