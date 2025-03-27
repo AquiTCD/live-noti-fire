@@ -26,7 +26,7 @@ interface InteractionResponse {
 export class DiscordService {
   private static readonly API_VERSION = "10";
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
-  private static readonly BOT_TOKEN = getEnvVar("DISCORD_CLIENT_SECRET");
+  private static readonly BOT_TOKEN = getEnvVar("DISCORD_BOT_TOKEN");
 
   // Discordが必要とするIntents
   private static readonly INTENTS = {

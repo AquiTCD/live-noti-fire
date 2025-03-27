@@ -29,7 +29,7 @@ const commands: Command[] = [
 
 async function registerCommands() {
   const applicationId = getEnvVar("DISCORD_CLIENT_ID");
-  const botToken = getEnvVar("DISCORD_CLIENT_SECRET");
+  const botToken = getEnvVar("DISCORD_BOT_TOKEN");
 
   const url = `https://discord.com/api/v${DISCORD_API_VERSION}/applications/${applicationId}/commands`;
 

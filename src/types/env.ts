@@ -3,6 +3,7 @@ import { loadEnv } from "../utils/env.ts";
 export interface Env {
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
+  DISCORD_BOT_TOKEN: string;
   TWITCH_CLIENT_ID: string;
   TWITCH_CLIENT_SECRET: string;
 }
@@ -10,6 +11,7 @@ export interface Env {
 export const REQUIRED_ENV_VARS = [
   'DISCORD_CLIENT_ID',
   'DISCORD_CLIENT_SECRET',
+  'DISCORD_BOT_TOKEN',
   'TWITCH_CLIENT_ID',
   'TWITCH_CLIENT_SECRET',
 ] as const;
