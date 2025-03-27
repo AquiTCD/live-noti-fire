@@ -183,9 +183,9 @@ export class DiscordController {
       if (interaction.type === 2) {
         console.log("Received command:", interaction.data.name);
         if (interaction.data.name === "live-register") {
-          return await this.handleLiveRegister(c);
+          return await DiscordController.handleLiveRegister(c);
         } else if (interaction.data.name === "live-notify") {
-          return await this.handleLiveNotify(c, interaction);
+          return await DiscordController.handleLiveNotify(c, interaction);
         }
       }
 
