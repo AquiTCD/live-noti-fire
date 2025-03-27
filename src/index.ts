@@ -10,6 +10,7 @@ const app = new Hono();
 // Discord エンドポイント
 app.post("/discord/interactions", DiscordController.handleInteraction);
 app.post("/discord/command_register", DiscordController.handleCommandRegister);
+app.post("/discord/test", DiscordController.handleTest);
 
 // デバッグ用エンドポイント
 app.get("/debug/kv", DebugController.showKvContents);
