@@ -59,7 +59,7 @@ export class DiscordController {
    */
   static async handleCommandRegister(c: Context) {
     try {
-      const success = await this.registerCommands();
+      const success = await DiscordController.registerCommands();
 
       if (!success) {
         return c.json({
