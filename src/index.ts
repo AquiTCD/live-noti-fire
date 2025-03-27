@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.218.2/http/server.ts";
 import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
 import { DiscordController } from "./controllers/discord.controller.ts";
 import { DebugController } from "./controllers/debug.controller.ts";
+import { validateEnv } from "./types/env.ts";
 
 const app = new Hono();
 
@@ -21,6 +22,12 @@ app.get("/health", (c: Context) => {
 });
 
 if (import.meta.main) {
+  // 起動時に環境変数をチェック
+  if (!validateEnv()) {
+    console.error("Missing required environment variables. Server startup aborted.");
+    Deno.exit(1);
+  }
+
   console.log("Server starting on http://localhost:8000");
   await serve(app.fetch, { port: 8000 });
 }
