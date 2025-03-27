@@ -1,19 +1,13 @@
+/// <reference lib="deno.unstable" />
+
 import { Hono } from "https://deno.land/x/hono@v3.12.0/mod.ts";
 import { serve } from "https://deno.land/std@0.218.2/http/server.ts";
 import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
 
-// Cloudflare Workers の型定義
-interface KVNamespace {
-  get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
-  delete(key: string): Promise<void>;
-}
+const app = new Hono();
 
-type Bindings = {
-  SAMPLE_STORE: KVNamespace;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
+// KVインスタンスの初期化
+const kv = await Deno.openKv();
 
 app.get("/", (c: Context) => {
   return c.json({
@@ -30,7 +24,7 @@ app.get("/health", (c: Context) => {
 });
 
 // サンプルデータを保存するエンドポイント
-app.post("/sample", async (c: Context<{ Bindings: Bindings }>) => {
+app.post("/sample", async (c: Context) => {
   const key = crypto.randomUUID();
   const sampleData = {
     id: key,
@@ -39,7 +33,12 @@ app.post("/sample", async (c: Context<{ Bindings: Bindings }>) => {
   };
 
   try {
-    await c.env.SAMPLE_STORE.put(key, JSON.stringify(sampleData));
+    // Deno KVにデータを保存
+    const result = await kv.set(["samples", key], sampleData);
+    if (!result.ok) {
+      throw new Error("データの保存に失敗しました");
+    }
+
     return c.json({
       message: "データを保存しました",
       data: sampleData
@@ -54,14 +53,15 @@ app.post("/sample", async (c: Context<{ Bindings: Bindings }>) => {
 });
 
 // 保存したデータを取得するエンドポイント
-app.get("/sample/:id", async (c: Context<{ Bindings: Bindings }>) => {
+app.get("/sample/:id", async (c: Context) => {
   const id = c.req.param("id");
   try {
-    const data = await c.env.SAMPLE_STORE.get(id);
-    if (!data) {
+    // Deno KVからデータを取得
+    const result = await kv.get(["samples", id]);
+    if (!result.value) {
       return c.json({ error: "データが見つかりませんでした" }, 404);
     }
-    return c.json(JSON.parse(data));
+    return c.json(result.value);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return c.json({

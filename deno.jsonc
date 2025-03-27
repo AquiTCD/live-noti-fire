@@ -1,14 +1,14 @@
 {
   "tasks": {
-    "dev": "deno run --allow-net src/index.ts",
-    "test": "deno test --allow-net"
+    "dev": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-kv src/index.ts",
+    "start": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-kv src/index.ts",
+    "test": "deno test --allow-net --allow-env --allow-read"
   },
   "imports": {
     "hono": "https://deno.land/x/hono@v3.12.0/mod.ts",
     "std/": "https://deno.land/std@0.218.2/"
   },
   "compilerOptions": {
-    "allowJs": true,
     "lib": ["deno.window", "deno.ns", "dom"],
     "strict": true
   }
