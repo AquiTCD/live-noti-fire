@@ -36,10 +36,10 @@ if (import.meta.main) {
 
   console.log("Server starting on http://localhost:8000");
   await serve(app.fetch, { port: 8000 });
+
+  Deno.cron("Continuous Request", "*/2 * * * *", () => {
+    console.log("running...");
+  });
 }
 
 export default app;
-
-Deno.cron("Continuous Request", "*/2 * * * *", () => {
-  console.log("running...");
-});
