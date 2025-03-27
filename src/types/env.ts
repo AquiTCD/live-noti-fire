@@ -1,3 +1,5 @@
+import { loadEnv } from "../utils/env.ts";
+
 export interface Env {
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
@@ -12,8 +14,12 @@ export const REQUIRED_ENV_VARS = [
   'TWITCH_CLIENT_SECRET',
 ] as const;
 
-// 環境変数のバリデーション
-export function validateEnv(): boolean {
+/**
+ * 環境変数のバリデーション
+ */
+export async function validateEnv(): Promise<boolean> {
+  await loadEnv();
+
   const missingEnvVars = REQUIRED_ENV_VARS.filter(
     envVar => !Deno.env.get(envVar)
   );
@@ -26,7 +32,9 @@ export function validateEnv(): boolean {
   return true;
 }
 
-// 環境変数の取得（型安全）
+/**
+ * 環境変数の取得（型安全）
+ */
 export function getEnvVar(key: keyof Env): string {
   const value = Deno.env.get(key);
   if (!value) {

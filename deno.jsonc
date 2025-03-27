@@ -6,10 +6,10 @@
   },
   "imports": {
     "hono": "https://deno.land/x/hono@v3.12.0/mod.ts",
-    "std/": "https://deno.land/std@0.218.2/"
+    "std/": "https://deno.land/std@0.218.2/",
+    "std/dotenv": "https://deno.land/std@0.218.2/dotenv/mod.ts"
   },
   "compilerOptions": {
-    "lib": ["deno.window", "deno.ns", "dom"],
     "strict": true
   }
 }
