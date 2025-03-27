@@ -1,7 +1,8 @@
 import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
-import type { DiscordSlashCommand, UserRegistration, ApiResponse } from "../types/user.ts";
+import type { UserRegistration, ApiResponse } from "../types/user.ts";
 import { userRepository } from "../repositories/user.repository.ts";
 import { TwitchService } from "../services/twitch.service.ts";
+import { DiscordService } from "../services/discord.service.ts";
 import { validateEnv } from "../types/env.ts";
 
 export class DiscordController {
@@ -15,48 +16,44 @@ export class DiscordController {
         throw new Error("Required environment variables are missing");
       }
 
-      const command = await c.req.json() as DiscordSlashCommand;
+      const interaction = await c.req.json();
+      const validation = DiscordService.validateCommand(interaction);
 
-      // コマンドのバリデーション
-      if (command.data.name !== "live-register") {
-        return c.json({
-          error: "Invalid command",
-          details: "This endpoint only accepts 'live-register' command",
-        }, 400);
-      }
+      if (!validation.valid || !validation.userId || !validation.twitchId) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: validation.error || "Invalid command",
+            error: true,
+          }
+        );
 
-      // DiscordユーザーIDの取得
-      const discordUserId = command.member?.user.id;
-      if (!discordUserId) {
-        return c.json({
-          error: "Discord user ID not found",
-          details: "Command must be used in a server, not in DMs",
-        }, 400);
-      }
-
-      // TwitchユーザーIDの取得（コマンドのオプションから）
-      const twitchUserId = command.data.options?.find(opt => opt.name === "twitch_id")?.value;
-      if (!twitchUserId) {
-        return c.json({
-          error: "Twitch user ID is required",
-          details: "Please provide your Twitch user ID using the 'twitch_id' option",
-        }, 400);
+        return c.json({ error: validation.error }, 400);
       }
 
       // 既存の登録確認
-      const existingUser = await userRepository.getByDiscordId(discordUserId);
+      const existingUser = await userRepository.getByDiscordId(validation.userId);
       if (existingUser) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "このDiscordアカウントは既に登録されています。",
+            error: true,
+          }
+        );
+
         return c.json({
           error: "User already registered",
-          details: "This Discord user is already registered with a Twitch account",
           data: existingUser,
         }, 400);
       }
 
       // 新規ユーザー登録
       const registration: UserRegistration = {
-        discordUserId,
-        twitchUserId,
+        discordUserId: validation.userId,
+        twitchUserId: validation.twitchId,
         registeredAt: new Date().toISOString(),
         isSubscribed: false,
       };
@@ -68,15 +65,23 @@ export class DiscordController {
       }
 
       // Twitchイベントのサブスクリプション
-      const subscriptionSuccess = await TwitchService.subscribeToStreamEvents(twitchUserId);
+      const subscriptionSuccess = await TwitchService.subscribeToStreamEvents(validation.twitchId);
 
       if (!subscriptionSuccess) {
         // サブスクリプション失敗時は登録を維持しつつ、状態を更新
-        await userRepository.updateSubscriptionStatus(discordUserId, false);
+        await userRepository.updateSubscriptionStatus(validation.userId, false);
+
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "登録は完了しましたが、Twitchイベントの設定に失敗しました。しばらく経ってから再度お試しください。",
+            error: true,
+          }
+        );
 
         return c.json({
           message: "Partial success: User registered but Twitch subscription failed",
-          details: "You are registered but we couldn't subscribe to Twitch events. Please try again later or contact support.",
           data: {
             ...registration,
             isSubscribed: false,
@@ -85,10 +90,19 @@ export class DiscordController {
       }
 
       // 登録完了とサブスクリプション成功
-      await userRepository.updateSubscriptionStatus(discordUserId, true);
+      await userRepository.updateSubscriptionStatus(validation.userId, true);
+
+      await DiscordService.respondToInteraction(
+        interaction.id,
+        interaction.token,
+        {
+          message: "登録が完了しました！配信開始時に通知が送られます。",
+          error: false,
+        }
+      );
+
       const response: ApiResponse<UserRegistration> = {
         message: "Registration successful",
-        details: "Successfully registered and subscribed to Twitch stream events",
         data: {
           ...registration,
           isSubscribed: true,
@@ -99,6 +113,17 @@ export class DiscordController {
 
     } catch (error: unknown) {
       console.error("Error in handleLiveRegister:", error);
+
+      if ('id' in (await c.req.json())) {
+        await DiscordService.respondToInteraction(
+          (await c.req.json()).id,
+          (await c.req.json()).token,
+          {
+            message: "エラーが発生しました。しばらく経ってから再度お試しください。",
+            error: true,
+          }
+        );
+      }
 
       const response: ApiResponse<never> = {
         error: "Registration failed",
