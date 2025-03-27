@@ -46,5 +46,31 @@ export const userRepository = {
     user.isSubscribed = isSubscribed;
     const result = await kv.set(["users", discordUserId], user);
     return result.ok;
+  },
+
+  /**
+   * すべてのKVエントリーを取得（デバッグ用）
+   */
+  async getAllEntries(): Promise<{
+    users: UserRegistration[];
+    mappings: Record<string, string>;
+  }> {
+    const users: UserRegistration[] = [];
+    const mappings: Record<string, string> = {};
+
+    // ユーザー情報の取得
+    const userEntries = kv.list<UserRegistration>({ prefix: ["users"] });
+    for await (const entry of userEntries) {
+      users.push(entry.value);
+    }
+
+    // Twitch-Discordマッピングの取得
+    const mappingEntries = kv.list<string>({ prefix: ["twitch_to_discord"] });
+    for await (const entry of mappingEntries) {
+      const twitchId = entry.key[1] as string;
+      mappings[twitchId] = entry.value;
+    }
+
+    return { users, mappings };
   }
 };
