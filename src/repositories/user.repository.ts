@@ -72,5 +72,34 @@ export const userRepository = {
     }
 
     return { users, mappings };
-  }
+  },
+
+ /**
+  * すべてのKVエントリーを削除（デバッグ用）
+  */
+ async clearAllEntries(): Promise<boolean> {
+   try {
+     const { users, mappings } = await this.getAllEntries();
+
+     // Atomicトランザクションを作成
+     let atomic = kv.atomic();
+
+     // ユーザー情報の削除
+     for (const user of users) {
+       atomic = atomic.delete(["users", user.discordUserId]);
+     }
+
+     // マッピング情報の削除
+     for (const twitchId of Object.keys(mappings)) {
+       atomic = atomic.delete(["twitch_to_discord", twitchId]);
+     }
+
+     // トランザクションの実行
+     const result = await atomic.commit();
+     return result.ok;
+   } catch (error) {
+     console.error("Error in clearAllEntries:", error);
+     return false;
+   }
+ }
 };

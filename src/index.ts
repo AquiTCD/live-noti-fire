@@ -14,6 +14,7 @@ app.post("/discord/test", DiscordController.handleTest);
 
 // デバッグ用エンドポイント
 app.get("/debug/kv", DebugController.showKvContents);
+app.delete("/debug/kv", DebugController.clearKvContents);
 
 // Healthcheck エンドポイント
 app.get("/health", (c: Context) => {

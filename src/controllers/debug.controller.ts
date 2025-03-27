@@ -28,4 +28,31 @@ export class DebugController {
       }, 500);
     }
   }
+
+ /**
+  * KVストアの内容を全て削除するエンドポイント
+  */
+ static async clearKvContents(c: Context) {
+   try {
+     const result = await userRepository.clearAllEntries();
+
+     if (!result) {
+       return c.json({
+         error: "Failed to clear KV contents",
+       }, 500);
+     }
+
+     return c.json({
+       message: "Successfully cleared all KV contents",
+     }, 200);
+
+   } catch (error: unknown) {
+     console.error("Error in clearKvContents:", error);
+
+     return c.json({
+       error: "Failed to clear KV contents",
+       details: error instanceof Error ? error.message : "Unknown error",
+     }, 500);
+   }
+ }
 }
