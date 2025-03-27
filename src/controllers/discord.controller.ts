@@ -172,6 +172,7 @@ export class DiscordController {
       if (!interaction) {
         return c.json({ error: "Invalid interaction data" }, 400);
       }
+      console.log("Received interaction:", interaction);
 
       // PING リクエストの処理
       if (interaction.type === 1) {
@@ -180,6 +181,7 @@ export class DiscordController {
 
       // コマンドの処理
       if (interaction.type === 2) {
+        console.log("Received command:", interaction.data.name);
         if (interaction.data.name === "live-register") {
           return await this.handleLiveRegister(c);
         } else if (interaction.data.name === "live-notify") {
@@ -327,6 +329,8 @@ export class DiscordController {
    */
   static async handleLiveNotify(c: Context, interaction: DiscordInteraction) {
     try {
+      console.log("Received live-notify command");
+
       if (!interaction.guild_id) {
         await DiscordService.respondToInteraction(
           interaction.id,
