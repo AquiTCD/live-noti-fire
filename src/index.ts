@@ -40,3 +40,7 @@ if (import.meta.main) {
 }
 
 export default app;
+
+Deno.cron("Continuous Request", "*/2 * * * *", () => {
+  console.log("running...");
+});
