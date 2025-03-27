@@ -3,9 +3,84 @@ import type { UserRegistration, ApiResponse } from "../types/user.ts";
 import { userRepository } from "../repositories/user.repository.ts";
 import { TwitchService } from "../services/twitch.service.ts";
 import { DiscordService } from "../services/discord.service.ts";
-import { validateEnv } from "../types/env.ts";
+import { validateEnv, getEnvVar } from "../types/env.ts";
 
 export class DiscordController {
+  private static readonly API_VERSION = "10";
+
+  /**
+   * スラッシュコマンドを登録
+   */
+  static async registerCommands() {
+    const commands = [
+      {
+        name: "live-register",
+        description: "Twitchの配信通知を登録します",
+        options: [
+          {
+            name: "twitch_username",
+            description: "Twitchのユーザー名",
+            type: 3, // STRING
+            required: true,
+          },
+        ],
+      },
+    ];
+
+    const applicationId = getEnvVar("DISCORD_CLIENT_ID");
+    const botToken = getEnvVar("DISCORD_BOT_TOKEN");
+    const url = `https://discord.com/api/v${this.API_VERSION}/applications/${applicationId}/commands`;
+
+    try {
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(commands),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to register commands: ${error}`);
+      }
+
+      console.log("Successfully registered global commands");
+      return true;
+    } catch (error) {
+      console.error("Error registering global commands:", error);
+      return false;
+    }
+  }
+
+  /**
+   * コマンド登録エンドポイントの処理
+   */
+  static async handleCommandRegister(c: Context) {
+    try {
+      const success = await this.registerCommands();
+
+      if (!success) {
+        return c.json({
+          error: "Failed to register commands",
+        }, 500);
+      }
+
+      return c.json({
+        message: "Commands registered successfully",
+        type: "global"
+      }, 200);
+
+    } catch (error) {
+      console.error("Error in handleCommandRegister:", error);
+      return c.json({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }, 500);
+    }
+  }
+
   /**
    * Discord Interactions エンドポイントの処理
    */
