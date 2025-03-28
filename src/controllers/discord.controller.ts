@@ -258,9 +258,23 @@ export class DiscordController {
         return c.json({ error: "Guild ID not found" }, 400);
       }
 
+      // Twitchユーザー名からIDを取得
+      const twitchUserId = await TwitchService.getBroadcasterId(validation.twitchId);
+      if (!twitchUserId) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "指定されたTwitchユーザーが見つかりません。",
+            error: true,
+          }
+        );
+        return c.json({ error: "Twitch user not found" }, 400);
+      }
+
       // ユーザー情報の保存
       const registrationSuccess = await userRepository.register(
-        validation.twitchId,
+        twitchUserId,
         interaction.guild_id
       );
       if (!registrationSuccess) {
@@ -268,7 +282,7 @@ export class DiscordController {
       }
 
       // Twitchイベントのサブスクリプション
-      const subscriptionSuccess = await TwitchService.subscribeToStreamEvents(validation.twitchId);
+      const subscriptionSuccess = await TwitchService.subscribeToStreamEvents(twitchUserId);
 
       if (!subscriptionSuccess) {
         // サブスクリプション失敗時は登録を維持しつつ、状態を更新
@@ -286,7 +300,7 @@ export class DiscordController {
         return c.json({
           message: "Partial success: User registered but Twitch subscription failed",
           data: {
-            twitchUserId: validation.twitchId,
+            twitchUserId: twitchUserId,
             guildId: interaction.guild_id,
             isSubscribed: false,
           }
@@ -312,7 +326,7 @@ export class DiscordController {
       }> = {
         message: "Registration successful",
         data: {
-          twitchUserId: validation.twitchId,
+          twitchUserId: twitchUserId,
           guildId: interaction.guild_id,
           isSubscribed: true,
         },
