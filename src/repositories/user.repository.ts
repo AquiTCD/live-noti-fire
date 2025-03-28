@@ -8,14 +8,34 @@ export const userRepository = {
   /**
    * ユーザー登録情報を保存
    */
-  async register(data: UserRegistration): Promise<boolean> {
-    // Discord User IDをプライマリーキーとして使用
-    const result = await kv.atomic()
-      .set(["users", data.discordUserId], data)
-      .set(["twitch_to_discord", data.twitchUserId], data.discordUserId)
-      .commit();
+  async register(twitchUserId: string, guildId: string): Promise<boolean> {
+    try {
+      // 既存のギルドリストを取得
+      const existingEntry = await kv.get<string[]>(["twitch_guilds", twitchUserId]);
+      const existingGuilds = existingEntry.value || [];
 
-    return result.ok;
+      // 既に登録されているか確認
+      if (existingGuilds.includes(guildId)) {
+        return true;
+      }
+
+      // 新しいギルドIDを追加
+      const updatedGuilds = [...existingGuilds, guildId];
+      const result = await kv.set(["twitch_guilds", twitchUserId], updatedGuilds);
+
+      return result.ok;
+    } catch (error) {
+      console.error("Error in register:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Twitchユーザーに関連付けられたギルドIDリストを取得
+   */
+  async getGuildsByTwitchId(twitchUserId: string): Promise<string[]> {
+    const result = await kv.get<string[]>(["twitch_guilds", twitchUserId]);
+    return result.value || [];
   },
 
   /**

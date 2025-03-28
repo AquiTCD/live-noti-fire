@@ -30,8 +30,8 @@ export class DiscordController {
   static async registerCommands() {
     const commands = [
       {
-        name: "live-register",
-        description: "Twitchの配信通知を登録します",
+        name: "add-streamer",
+        description: "Twitchストリーマーの配信通知を登録します",
         options: [
           {
             name: "twitch_username",
@@ -188,8 +188,8 @@ export class DiscordController {
       // コマンドの処理
       if (interaction.type === 2) {
         console.log("Received command:", interaction.data.name);
-        if (interaction.data.name === "live-register") {
-          return await DiscordController.handleLiveRegister(c);
+        if (interaction.data.name === "add-streamer") {
+          return await DiscordController.handleAddStreamer(c);
         } else if (interaction.data.name === "notify-settings") {
           return await DiscordController.handleNotifySettings(c, interaction);
         }
@@ -205,7 +205,7 @@ export class DiscordController {
   /**
    * /live-register スラッシュコマンドの処理
    */
-  static async handleLiveRegister(c: Context) {
+  static async handleAddStreamer(c: Context) {
     try {
       // 環境変数のバリデーション
       if (!validateEnv()) {
@@ -246,16 +246,24 @@ export class DiscordController {
         }, 400);
       }
 
-      // 新規ユーザー登録
-      const registration: UserRegistration = {
-        discordUserId: validation.userId,
-        twitchUserId: validation.twitchId,
-        registeredAt: new Date().toISOString(),
-        isSubscribed: false,
-      };
+      // ギルドIDが必要
+      if (!interaction.guild_id) {
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "このコマンドはサーバー内でのみ使用できます。",
+            error: true,
+          }
+        );
+        return c.json({ error: "Guild ID not found" }, 400);
+      }
 
       // ユーザー情報の保存
-      const registrationSuccess = await userRepository.register(registration);
+      const registrationSuccess = await userRepository.register(
+        validation.twitchId,
+        interaction.guild_id
+      );
       if (!registrationSuccess) {
         throw new Error("Failed to register user in database");
       }
@@ -279,7 +287,8 @@ export class DiscordController {
         return c.json({
           message: "Partial success: User registered but Twitch subscription failed",
           data: {
-            ...registration,
+            twitchUserId: validation.twitchId,
+            guildId: interaction.guild_id,
             isSubscribed: false,
           }
         }, 201);
@@ -297,10 +306,15 @@ export class DiscordController {
         }
       );
 
-      const response: ApiResponse<UserRegistration> = {
+      const response: ApiResponse<{
+        twitchUserId: string;
+        guildId: string;
+        isSubscribed: boolean;
+      }> = {
         message: "Registration successful",
         data: {
-          ...registration,
+          twitchUserId: validation.twitchId,
+          guildId: interaction.guild_id,
           isSubscribed: true,
         },
       };
