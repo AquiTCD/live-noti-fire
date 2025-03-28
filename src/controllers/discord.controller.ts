@@ -42,14 +42,20 @@ export class DiscordController {
         ],
       },
       {
-        name: "live-notify",
-        description: "配信通知を送信するチャンネルを設定します",
+        name: "notify-settings",
+        description: "配信通知の設定を行います",
         options: [
           {
             name: "channel",
             description: "通知を送信するチャンネル",
             type: 7, // CHANNEL
             required: true,
+          },
+          {
+            name: "rules",
+            description: "通知ルール（カンマ区切りで複数指定可）",
+            type: 3, // STRING
+            required: false,
           },
         ],
       },
@@ -184,8 +190,8 @@ export class DiscordController {
         console.log("Received command:", interaction.data.name);
         if (interaction.data.name === "live-register") {
           return await DiscordController.handleLiveRegister(c);
-        } else if (interaction.data.name === "live-notify") {
-          return await DiscordController.handleLiveNotify(c, interaction);
+        } else if (interaction.data.name === "notify-settings") {
+          return await DiscordController.handleNotifySettings(c, interaction);
         }
       }
 
@@ -327,7 +333,7 @@ export class DiscordController {
   /**
    * /live-notify スラッシュコマンドの処理
    */
-  static async handleLiveNotify(c: Context, interaction: DiscordInteraction) {
+  static async handleNotifySettings(c: Context, interaction: DiscordInteraction) {
     try {
       console.log("Received live-notify command");
 
@@ -356,9 +362,17 @@ export class DiscordController {
         return c.json({ error: "Channel not specified" }, 400);
       }
 
+      const rulesOption = interaction.data.options?.find(opt => opt.name === "rules");
+      let rules: string[] | undefined;
+
+      if (rulesOption?.value) {
+        rules = rulesOption.value.split(',').map(rule => rule.trim()).filter(rule => rule.length > 0);
+      }
+
       const success = await GuildRepository.setNotifyChannel(
         interaction.guild_id,
-        channelOption.value
+        channelOption.value,
+        rules
       );
 
       if (!success) {

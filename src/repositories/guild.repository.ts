@@ -1,5 +1,6 @@
 interface GuildStorage {
   channelId: string;
+  rules?: string[];
 }
 
 export class GuildRepository {
@@ -15,10 +16,17 @@ export class GuildRepository {
   /**
    * 通知チャンネルを設定
    */
-  static async setNotifyChannel(guildId: string, channelId: string): Promise<boolean> {
+  static async setNotifyChannel(
+    guildId: string,
+    channelId: string,
+    rules?: string[]
+  ): Promise<boolean> {
     try {
       const key = ['guild', guildId];
-      const value: GuildStorage = { channelId };
+      const value: GuildStorage = {
+        channelId,
+        ...(rules && rules.length > 0 ? { rules } : {})
+      };
       await this.kv.set(key, value);
       return true;
     } catch (error) {
