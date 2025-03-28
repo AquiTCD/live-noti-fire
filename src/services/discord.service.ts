@@ -17,6 +17,11 @@ interface DiscordInteraction {
   user?: {
     id: string;
   };
+  member?: {
+    user: {
+      id: string;
+    };
+  };
 }
 
 interface InteractionResponse {
@@ -233,7 +238,8 @@ export class DiscordService {
       return { valid: false, error: "Unknown command" };
     }
 
-    const userId = interaction.user?.id;
+    // ユーザーIDはuser直下かmember.user内にある
+    const userId = interaction.user?.id || interaction.member?.user.id;
     if (!userId) {
       return { valid: false, error: "User ID not found" };
     }
