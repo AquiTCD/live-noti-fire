@@ -206,13 +206,14 @@ export class DiscordController {
    * /live-register スラッシュコマンドの処理
    */
   static async handleAddStreamer(c: Context) {
+    let interaction;
     try {
       // 環境変数のバリデーション
       if (!validateEnv()) {
         throw new Error("Required environment variables are missing");
       }
 
-      const interaction = await c.req.json();
+      interaction = await c.req.json();
       const validation = DiscordService.validateCommand(interaction);
 
       if (!validation.valid || !validation.userId || !validation.twitchId) {
@@ -320,27 +321,21 @@ export class DiscordController {
       };
 
       return c.json(response, 201);
+} catch (error: unknown) {
+  console.error("Error in handleAddStreamer:", error);
 
-    } catch (error: unknown) {
-      console.error("Error in handleAddStreamer:", error);
-
-      try {
-        const interaction = await c.req.json();
-        if ('id' in interaction) {
-          await DiscordService.respondToInteraction(
-            interaction.id,
-            interaction.token,
-            {
-              message: "エラーが発生しました。しばらく経ってから再度お試しください。",
-              error: true,
-            }
-          );
-        }
-      } catch (jsonError) {
-        console.error("Error parsing interaction in error handler:", jsonError);
+  if (interaction && 'id' in interaction) {
+    await DiscordService.respondToInteraction(
+      interaction.id,
+      interaction.token,
+      {
+        message: "エラーが発生しました。しばらく経ってから再度お試しください。",
+        error: true,
       }
+    );
+  }
 
-      const response: ApiResponse<never> = {
+  const response: ApiResponse<never> = {
         error: "Registration failed",
         details: error instanceof Error ? error.message : "An unexpected error occurred",
       };
