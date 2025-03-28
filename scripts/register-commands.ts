@@ -14,14 +14,32 @@ interface Command {
 const DISCORD_API_VERSION = "10";
 const commands: Command[] = [
   {
-    name: "live-register",
-    description: "Twitchの配信通知を登録します",
+    name: "add-streamer",
+    description: "Twitchストリーマーの配信通知を登録します",
     options: [
       {
-        name: "twitch_id",
-        description: "TwitchのユーザーID",
+        name: "twitch_username",
+        description: "Twitchのユーザー名",
         type: 3, // STRING
         required: true,
+      },
+    ],
+  },
+  {
+    name: "notify-settings",
+    description: "配信通知の設定を行います",
+    options: [
+      {
+        name: "channel",
+        description: "通知を送信するチャンネル",
+        type: 7, // CHANNEL
+        required: true,
+      },
+      {
+        name: "rules",
+        description: "通知ルール（カンマ区切りで複数指定可）",
+        type: 3, // STRING
+        required: false,
       },
     ],
   },

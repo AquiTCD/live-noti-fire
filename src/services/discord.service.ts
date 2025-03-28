@@ -229,7 +229,7 @@ export class DiscordService {
       return { valid: false, error: "Invalid interaction type" };
     }
 
-    if (interaction.data.name !== "live-register") {
+    if (interaction.data.name !== "add-streamer") {
       return { valid: false, error: "Unknown command" };
     }
 
@@ -239,11 +239,11 @@ export class DiscordService {
     }
 
     const twitchId = interaction.data.options?.find(
-      (opt: DiscordInteractionOption) => opt.name === "twitch_id"
+      (opt: DiscordInteractionOption) => opt.name === "twitch_username"
     )?.value;
 
     if (!twitchId) {
-      return { valid: false, error: "Twitch ID is required" };
+      return { valid: false, error: "Twitch username is required" };
     }
 
     return {

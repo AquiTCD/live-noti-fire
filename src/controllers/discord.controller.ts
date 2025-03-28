@@ -203,7 +203,7 @@ export class DiscordController {
   }
 
   /**
-   * /live-register スラッシュコマンドの処理
+   * /add-streamer スラッシュコマンドの処理
    */
   static async handleAddStreamer(c: Context, interaction: DiscordInteraction) {
     try {
@@ -341,11 +341,11 @@ export class DiscordController {
   }
 
   /**
-   * /live-notify スラッシュコマンドの処理
+   * /notify-settings スラッシュコマンドの処理
    */
   static async handleNotifySettings(c: Context, interaction: DiscordInteraction) {
     try {
-      console.log("Received live-notify command");
+      console.log("Received notify-settings command");
 
       if (!interaction.guild_id) {
         await DiscordService.respondToInteraction(
