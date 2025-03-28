@@ -14,8 +14,12 @@ export class DebugController {
         data: {
           totalUsers: data.users.length,
           totalMappings: Object.keys(data.mappings).length,
+          totalGuildMappings: Object.keys(data.guilds).length,
+          totalGuildSettings: Object.keys(data.guildSettings).length,
           users: data.users,
           twitchToDiscordMappings: data.mappings,
+          twitchToGuildMappings: data.guilds,
+          guildSettings: data.guildSettings,
         }
       }, 200);
 

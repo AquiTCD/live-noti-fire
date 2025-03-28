@@ -11,7 +11,7 @@ export const userRepository = {
   async register(twitchUserId: string, guildId: string): Promise<boolean> {
     try {
       // 既存のギルドリストを取得
-      const existingEntry = await kv.get<string[]>(["twitch_guilds", twitchUserId]);
+      const existingEntry = await kv.get<string[]>(["broadcasterId", twitchUserId]);
       const existingGuilds = existingEntry.value || [];
 
       // 既に登録されているか確認
@@ -21,7 +21,7 @@ export const userRepository = {
 
       // 新しいギルドIDを追加
       const updatedGuilds = [...existingGuilds, guildId];
-      const result = await kv.set(["twitch_guilds", twitchUserId], updatedGuilds);
+      const result = await kv.set(["broadcasterId", twitchUserId], updatedGuilds);
 
       return result.ok;
     } catch (error) {
@@ -34,7 +34,7 @@ export const userRepository = {
    * Twitchユーザーに関連付けられたギルドIDリストを取得
    */
   async getGuildsByTwitchId(twitchUserId: string): Promise<string[]> {
-    const result = await kv.get<string[]>(["twitch_guilds", twitchUserId]);
+    const result = await kv.get<string[]>(["broadcasterId", twitchUserId]);
     return result.value || [];
   },
 
@@ -74,9 +74,13 @@ export const userRepository = {
   async getAllEntries(): Promise<{
     users: UserRegistration[];
     mappings: Record<string, string>;
+    guilds: Record<string, string[]>;
+    guildSettings: Record<string, unknown>;
   }> {
     const users: UserRegistration[] = [];
     const mappings: Record<string, string> = {};
+    const guilds: Record<string, string[]> = {};
+    const guildSettings: Record<string, unknown> = {};
 
     // ユーザー情報の取得
     const userEntries = kv.list<UserRegistration>({ prefix: ["users"] });
@@ -91,7 +95,21 @@ export const userRepository = {
       mappings[twitchId] = entry.value;
     }
 
-    return { users, mappings };
+    // Twitchユーザーとギルドのマッピングを取得
+    const guildEntries = kv.list<string[]>({ prefix: ["broadcasterId"] });
+    for await (const entry of guildEntries) {
+      const twitchId = entry.key[1] as string;
+      guilds[twitchId] = entry.value;
+    }
+
+    // ギルド設定の取得
+    const guildSettingsEntries = kv.list({ prefix: ["guildId"] });
+    for await (const entry of guildSettingsEntries) {
+      const guildId = entry.key[1] as string;
+      guildSettings[guildId] = entry.value;
+    }
+
+    return { users, mappings, guilds, guildSettings };
   },
 
  /**
@@ -99,7 +117,7 @@ export const userRepository = {
   */
  async clearAllEntries(): Promise<boolean> {
    try {
-     const { users, mappings } = await this.getAllEntries();
+     const { users, mappings, guilds, guildSettings } = await this.getAllEntries();
 
      // Atomicトランザクションを作成
      let atomic = kv.atomic();
@@ -112,6 +130,16 @@ export const userRepository = {
      // マッピング情報の削除
      for (const twitchId of Object.keys(mappings)) {
        atomic = atomic.delete(["twitch_to_discord", twitchId]);
+     }
+
+     // Twitchユーザーとギルドのマッピング情報の削除
+     for (const twitchId of Object.keys(guilds)) {
+       atomic = atomic.delete(["broadcasterId", twitchId]);
+     }
+
+     // ギルド設定の削除
+     for (const guildId of Object.keys(guildSettings)) {
+       atomic = atomic.delete(["guildId", guildId]);
      }
 
      // トランザクションの実行
