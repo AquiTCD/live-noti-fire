@@ -322,17 +322,22 @@ export class DiscordController {
       return c.json(response, 201);
 
     } catch (error: unknown) {
-      console.error("Error in handleLiveRegister:", error);
+      console.error("Error in handleAddStreamer:", error);
 
-      if ('id' in (await c.req.json())) {
-        await DiscordService.respondToInteraction(
-          (await c.req.json()).id,
-          (await c.req.json()).token,
-          {
-            message: "エラーが発生しました。しばらく経ってから再度お試しください。",
-            error: true,
-          }
-        );
+      try {
+        const interaction = await c.req.json();
+        if ('id' in interaction) {
+          await DiscordService.respondToInteraction(
+            interaction.id,
+            interaction.token,
+            {
+              message: "エラーが発生しました。しばらく経ってから再度お試しください。",
+              error: true,
+            }
+          );
+        }
+      } catch (jsonError) {
+        console.error("Error parsing interaction in error handler:", jsonError);
       }
 
       const response: ApiResponse<never> = {
