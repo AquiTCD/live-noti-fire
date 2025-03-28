@@ -189,7 +189,7 @@ export class DiscordController {
       if (interaction.type === 2) {
         console.log("Received command:", interaction.data.name);
         if (interaction.data.name === "add-streamer") {
-          return await DiscordController.handleAddStreamer(c);
+          return await DiscordController.handleAddStreamer(c, interaction);
         } else if (interaction.data.name === "notify-settings") {
           return await DiscordController.handleNotifySettings(c, interaction);
         }
@@ -205,15 +205,13 @@ export class DiscordController {
   /**
    * /live-register スラッシュコマンドの処理
    */
-  static async handleAddStreamer(c: Context) {
-    let interaction;
+  static async handleAddStreamer(c: Context, interaction: DiscordInteraction) {
     try {
       // 環境変数のバリデーション
       if (!validateEnv()) {
         throw new Error("Required environment variables are missing");
       }
 
-      interaction = await c.req.json();
       const validation = DiscordService.validateCommand(interaction);
 
       if (!validation.valid || !validation.userId || !validation.twitchId) {
@@ -324,16 +322,14 @@ export class DiscordController {
 } catch (error: unknown) {
   console.error("Error in handleAddStreamer:", error);
 
-  if (interaction && 'id' in interaction) {
-    await DiscordService.respondToInteraction(
-      interaction.id,
-      interaction.token,
-      {
-        message: "エラーが発生しました。しばらく経ってから再度お試しください。",
-        error: true,
-      }
-    );
-  }
+  await DiscordService.respondToInteraction(
+    interaction.id,
+    interaction.token,
+    {
+      message: "エラーが発生しました。しばらく経ってから再度お試しください。",
+      error: true,
+    }
+  );
 
   const response: ApiResponse<never> = {
         error: "Registration failed",
