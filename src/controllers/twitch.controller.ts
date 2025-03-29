@@ -117,7 +117,7 @@ export class TwitchController {
             try {
               // ギルドの通知設定を取得
               const guildSettings = await GuildRepository.getGuildSettings(guildId);
-              if (!guildSettings || !guildSettings.channelId) {
+              if (!guildSettings || !guildSettings.channel_id) {
                 console.log(`No notification settings found for guild ${guildId}`);
                 return;
               }
@@ -169,8 +169,8 @@ export class TwitchController {
 
               // Discord通知を送信（メンション付き）
               const messageId = await DiscordService.sendEmbedMessage(
-                guildSettings.channelId,
-                `🔴 <@${user.discordUserId}>さんが配信を開始しました！`,
+                guildSettings.channel_id,
+                `🔴 <@${user.discordUserId}> が配信を開始しました！`,
                 embed
               );
 
@@ -179,7 +179,7 @@ export class TwitchController {
                 broadcasterId,
                 guildId,
                 messageId,
-                guildSettings.channelId
+                guildSettings.channel_id
               );
 
               console.log(`Notification sent to guild ${guildId}`);
@@ -203,8 +203,8 @@ export class TwitchController {
 
               // メッセージに配信終了のリアクションを追加
               await DiscordService.addReaction(
-                notification.channelId,
-                notification.messageId,
+                notification.channel_id,
+                notification.message_id,
                 "🚫"
               );
 

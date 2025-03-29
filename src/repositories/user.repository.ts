@@ -23,7 +23,7 @@ export const userRepository = {
       const mappingResult = await kv.set(["twitch_to_discord", twitchUserId], discordUserId);
 
       // 既存のギルドリストを取得
-      const existingEntry = await kv.get<string[]>(["broadcasterId", twitchUserId]);
+      const existingEntry = await kv.get<string[]>(["broadcaster_id", twitchUserId]);
       const existingGuilds = existingEntry.value || [];
 
       // 既に登録されているか確認
@@ -33,7 +33,7 @@ export const userRepository = {
 
       // 新しいギルドIDを追加
       const updatedGuilds = [...existingGuilds, guildId];
-      const guildResult = await kv.set(["broadcasterId", twitchUserId], updatedGuilds);
+      const guildResult = await kv.set(["broadcaster_id", twitchUserId], updatedGuilds);
 
       return userResult.ok && mappingResult.ok && guildResult.ok;
     } catch (error) {
@@ -46,7 +46,7 @@ export const userRepository = {
    * Twitchユーザーに関連付けられたギルドIDリストを取得
    */
   async getGuildsByTwitchId(twitchUserId: string): Promise<string[]> {
-    const result = await kv.get<string[]>(["broadcasterId", twitchUserId]);
+    const result = await kv.get<string[]>(["broadcaster_id", twitchUserId]);
     return result.value || [];
   },
 
@@ -108,14 +108,14 @@ export const userRepository = {
     }
 
     // Twitchユーザーとギルドのマッピングを取得
-    const guildEntries = kv.list<string[]>({ prefix: ["broadcasterId"] });
+    const guildEntries = kv.list<string[]>({ prefix: ["broadcaster_id"] });
     for await (const entry of guildEntries) {
       const twitchId = entry.key[1] as string;
       guilds[twitchId] = entry.value;
     }
 
     // ギルド設定の取得
-    const guildSettingsEntries = kv.list({ prefix: ["guildId"] });
+    const guildSettingsEntries = kv.list({ prefix: ["guild_id"] });
     for await (const entry of guildSettingsEntries) {
       const guildId = entry.key[1] as string;
       guildSettings[guildId] = entry.value;
@@ -146,12 +146,12 @@ export const userRepository = {
 
       // Twitchユーザーとギルドのマッピング情報の削除
       for (const twitchId of Object.keys(guilds)) {
-        atomic = atomic.delete(["broadcasterId", twitchId]);
+        atomic = atomic.delete(["broadcaster_id", twitchId]);
       }
 
       // ギルド設定の削除
       for (const guildId of Object.keys(guildSettings)) {
-        atomic = atomic.delete(["guildId", guildId]);
+        atomic = atomic.delete(["guild_id", guildId]);
       }
 
       // トランザクションの実行

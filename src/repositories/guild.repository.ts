@@ -1,11 +1,11 @@
 interface GuildStorage {
-  channelId: string;
+  channel_id: string;
   rules?: string[];
 }
 
 export class GuildRepository {
   private static kv: Deno.Kv;
-  private static readonly KEY_PREFIX = 'guildId';
+  private static readonly KEY_PREFIX = 'guild_id';
 
   static {
     const initKv = async () => {
@@ -25,7 +25,7 @@ export class GuildRepository {
     try {
       const key = [this.KEY_PREFIX, guildId];
       const value: GuildStorage = {
-        channelId,
+        channel_id: channelId,
         ...(rules && rules.length > 0 ? { rules } : {})
       };
       await this.kv.set(key, value);
@@ -43,7 +43,7 @@ export class GuildRepository {
     try {
       const key = [this.KEY_PREFIX, guildId];
       const result = await this.kv.get<GuildStorage>(key);
-      return result.value?.channelId ?? null;
+      return result.value?.channel_id ?? null;
     } catch (error) {
       console.error('Error getting notify channel:', error);
       return null;

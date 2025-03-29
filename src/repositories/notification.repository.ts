@@ -1,8 +1,8 @@
 interface NotificationMessage {
-  broadcasterId: string;
-  guildId: string;
-  messageId: string;
-  channelId: string;
+  broadcaster_id: string;
+  guild_id: string;
+  message_id: string;
+  channel_id: string;
 }
 
 export class NotificationRepository {
@@ -28,10 +28,10 @@ export class NotificationRepository {
     try {
       const key = [this.KEY_PREFIX, broadcasterId, guildId];
       const value: NotificationMessage = {
-        broadcasterId,
-        guildId,
-        messageId,
-        channelId
+        broadcaster_id: broadcasterId,
+        guild_id: guildId,
+        message_id: messageId,
+        channel_id: channelId
       };
       const result = await this.kv.set(key, value);
       return result.ok;
