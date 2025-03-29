@@ -44,9 +44,13 @@ export class TwitchController {
 
       // Verificationリクエストの処理
       if (messageType === "webhook_callback_verification") {
-        return c.json({
-          challenge: payload.challenge
-        }, 200);
+        console.log("Received verification request");
+        return new Response(payload.challenge, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/plain"
+          }
+        });
       }
 
       // 通知とRevocationの場合の処理
