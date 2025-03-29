@@ -8,6 +8,7 @@ interface TwitchStreamInfo {
   title: string;
   thumbnail_url: string;
   started_at: string;
+  tags: string[];
 }
 
 interface TwitchStreamResponse {
@@ -142,6 +143,49 @@ export class TwitchService {
     }
   }
 
+  /**
+   * ストリーム情報を取得
+   */
+  static async getStreamInfo(broadcasterId: string): Promise<TwitchStreamInfo | null> {
+    try {
+      const token = await this.getAccessToken();
+      const response = await fetch(
+        `${this.TWITCH_API_URL}/streams?user_id=${broadcasterId}`,
+        {
+          headers: {
+            "Client-ID": getEnvVar("TWITCH_CLIENT_ID"),
+            "Authorization": `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to get stream info: ${response.statusText}`);
+      }
+
+      const data = await response.json() as TwitchStreamResponse;
+
+      if (!data.data || data.data.length === 0) {
+        return null;
+      }
+
+      const streamInfo = data.data[0];
+
+      // サムネイルURLのサイズを400x255に変更
+      const thumbnailUrl = streamInfo.thumbnail_url
+        .replace('{width}', '400')
+        .replace('{height}', '255');
+
+      return {
+        ...streamInfo,
+        thumbnail_url: thumbnailUrl
+      };
+    } catch (error) {
+      console.error("Error getting stream info:", error);
+      return null;
+    }
+  }
+
   private static async getAccessToken(): Promise<string> {
     // 既存のトークンが有効な場合は再利用
     if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
@@ -239,49 +283,6 @@ export class TwitchService {
     } catch (error) {
       console.error(`Failed to subscribe to ${type} events:`, error);
       return false;
-    }
-  }
-
-  /**
-   * ストリーム情報を取得
-   */
-  static async getStreamInfo(broadcasterId: string): Promise<TwitchStreamInfo | null> {
-    try {
-      const token = await this.getAccessToken();
-      const response = await fetch(
-        `${this.TWITCH_API_URL}/streams?user_id=${broadcasterId}`,
-        {
-          headers: {
-            "Client-ID": getEnvVar("TWITCH_CLIENT_ID"),
-            "Authorization": `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to get stream info: ${response.statusText}`);
-      }
-
-      const data = await response.json() as TwitchStreamResponse;
-
-      if (!data.data || data.data.length === 0) {
-        return null;
-      }
-
-      const streamInfo = data.data[0];
-
-      // サムネイルURLのサイズを400x255に変更
-      const thumbnailUrl = streamInfo.thumbnail_url
-        .replace('{width}', '400')
-        .replace('{height}', '255');
-
-      return {
-        ...streamInfo,
-        thumbnail_url: thumbnailUrl
-      };
-    } catch (error) {
-      console.error("Error getting stream info:", error);
-      return null;
     }
   }
 }

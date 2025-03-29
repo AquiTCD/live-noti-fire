@@ -143,8 +143,15 @@ export class TwitchController {
                 color: 0x6441A4, // Twitchのブランドカラー
                 fields: [
                   {
-                    name: "ゲーム",
+                    name: "GAME",
                     value: streamInfo.game_name || "未設定",
+                    inline: true
+                  },
+                  {
+                    name: "TAG",
+                    value: streamInfo.tags?.length > 0
+                      ? streamInfo.tags.join(", ")
+                      : "-",
                     inline: true
                   }
                 ],
@@ -191,7 +198,7 @@ export class TwitchController {
               await DiscordService.addReaction(
                 notification.channelId,
                 notification.messageId,
-                ":sime:"
+                "\:sime:"
               );
 
               // 通知メッセージの情報を削除
