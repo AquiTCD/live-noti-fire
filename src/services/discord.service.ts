@@ -89,7 +89,6 @@ export class DiscordService {
   private static readonly API_VERSION = "10";
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
   private static readonly BOT_TOKEN = getEnvVar("DISCORD_BOT_TOKEN");
-
   private static readonly PUBLIC_KEY = getEnvVar("DISCORD_PUBLIC_KEY");
 
   /**
@@ -228,7 +227,10 @@ export class DiscordService {
         method: "POST",
         body: JSON.stringify({
           content,
-          embeds: [embed]
+          embeds: [embed],
+          allowed_mentions: {
+            parse: ["users"]
+          }
         }),
       });
       const data = await response.json();

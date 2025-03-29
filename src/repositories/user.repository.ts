@@ -8,22 +8,34 @@ export const userRepository = {
   /**
    * ユーザー登録情報を保存
    */
-  async register(twitchUserId: string, guildId: string): Promise<boolean> {
+  async register(twitchUserId: string, discordUserId: string, guildId: string): Promise<boolean> {
     try {
+      // ユーザー情報の登録
+      const userRegistration: UserRegistration = {
+        discordUserId,
+        twitchUserId,
+        registeredAt: new Date().toISOString(),
+        isSubscribed: false,
+      };
+      const userResult = await kv.set(["users", discordUserId], userRegistration);
+
+      // Twitch-Discord マッピングの登録
+      const mappingResult = await kv.set(["twitch_to_discord", twitchUserId], discordUserId);
+
       // 既存のギルドリストを取得
       const existingEntry = await kv.get<string[]>(["broadcasterId", twitchUserId]);
       const existingGuilds = existingEntry.value || [];
 
       // 既に登録されているか確認
       if (existingGuilds.includes(guildId)) {
-        return true;
+        return userResult.ok && mappingResult.ok;
       }
 
       // 新しいギルドIDを追加
       const updatedGuilds = [...existingGuilds, guildId];
-      const result = await kv.set(["broadcasterId", twitchUserId], updatedGuilds);
+      const guildResult = await kv.set(["broadcasterId", twitchUserId], updatedGuilds);
 
-      return result.ok;
+      return userResult.ok && mappingResult.ok && guildResult.ok;
     } catch (error) {
       console.error("Error in register:", error);
       return false;

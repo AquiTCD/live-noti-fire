@@ -160,10 +160,17 @@ export class TwitchController {
                 }
               };
 
-              // Discord通知を送信
+              // TwitchユーザーIDに紐づくDiscordユーザー情報を取得
+              const user = await userRepository.getByTwitchId(broadcasterId);
+              if (!user) {
+                console.log(`No Discord user found for Twitch user ${broadcasterId}`);
+                return;
+              }
+
+              // Discord通知を送信（メンション付き）
               const messageId = await DiscordService.sendEmbedMessage(
                 guildSettings.channelId,
-                `🔴 **${broadcasterName}** が配信を開始しました！`,
+                `🔴 <@${user.discordUserId}>さんが配信を開始しました！`,
                 embed
               );
 

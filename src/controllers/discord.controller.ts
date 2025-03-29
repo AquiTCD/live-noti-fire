@@ -275,6 +275,7 @@ export class DiscordController {
       // ユーザー情報の保存
       const registrationSuccess = await userRepository.register(
         twitchUserId,
+        validation.userId,
         interaction.guild_id
       );
       if (!registrationSuccess) {
@@ -333,19 +334,19 @@ export class DiscordController {
       };
 
       return c.json(response, 201);
-} catch (error: unknown) {
-  console.error("Error in handleAddStreamer:", error);
+    } catch (error: unknown) {
+      console.error("Error in handleAddStreamer:", error);
 
-  await DiscordService.respondToInteraction(
-    interaction.id,
-    interaction.token,
-    {
-      message: "エラーが発生しました。しばらく経ってから再度お試しください。",
-      error: true,
-    }
-  );
+      await DiscordService.respondToInteraction(
+        interaction.id,
+        interaction.token,
+        {
+          message: "エラーが発生しました。しばらく経ってから再度お試しください。",
+          error: true,
+        }
+      );
 
-  const response: ApiResponse<never> = {
+      const response: ApiResponse<never> = {
         error: "Registration failed",
         details: error instanceof Error ? error.message : "An unexpected error occurred",
       };
