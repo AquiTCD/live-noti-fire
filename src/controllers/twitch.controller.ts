@@ -7,7 +7,18 @@ import { TwitchService } from "../services/twitch.service.ts";
 
 interface StreamEvent {
   subscription: {
+    id: string;
     type: string;
+    version: string;
+    status: string;
+    condition: {
+      broadcaster_user_id: string;
+    };
+    transport: {
+      method: string;
+      callback: string;
+    };
+    created_at: string;
   };
   event: {
     broadcaster_user_id: string;
@@ -56,7 +67,17 @@ export class TwitchController {
       // 通知とRevocationの場合の処理
       if (messageType === "notification" || messageType === "revocation") {
         const streamPayload = payload as StreamEvent;
-        const broadcasterId = streamPayload.event.broadcaster_user_id;
+        console.log("Received webhook payload:", {
+          type: messageType,
+          subscriptionType: streamPayload.subscription.type,
+          event: streamPayload.event
+        });
+
+        // subscription.conditionからbroadcasterIdを取得
+        const broadcasterId = streamPayload.subscription.condition?.broadcaster_user_id ||
+                            streamPayload.event.broadcaster_user_id;
+
+        console.log("Using broadcasterId:", broadcasterId);
 
         // リクエストの署名を検証
         const isValid = await TwitchService.verifyWebhookRequest(

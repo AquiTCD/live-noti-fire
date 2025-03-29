@@ -71,25 +71,40 @@ export class TwitchService {
    * Webhookリクエストの署名を検証
    */
   static async verifyWebhookRequest(
-    messageId: string,
-    timestamp: string,
-    signature: string,
-    broadcasterId: string,
-    body: string
-  ): Promise<boolean> {
-    try {
-      const secret = await this.getSecret(broadcasterId);
-      if (!secret) {
-        console.error(`No secret found for broadcaster ${broadcasterId}`);
-        return false;
-      }
+   messageId: string,
+   timestamp: string,
+   signature: string,
+   broadcasterId: string,
+   body: string
+ ): Promise<boolean> {
+   try {
+     console.log("Verifying webhook request for broadcaster:", broadcasterId);
+     console.log("Headers received:", {
+       messageId,
+       timestamp,
+       signature
+     });
 
-      const message = messageId + timestamp + body;
-      const computedSignature = `sha256=${
-        await this.computeHmac(message, secret)
-      }`;
+     const secret = await this.getSecret(broadcasterId);
+     if (!secret) {
+       console.error(`No secret found for broadcaster ${broadcasterId}`);
+       return false;
+     }
+     console.log("Secret retrieved successfully");
 
-      return computedSignature === signature;
+     const message = messageId + timestamp + body;
+     console.log("Message to sign:", message);
+
+     const computedSignature = `sha256=${
+       await this.computeHmac(message, secret)
+     }`;
+     console.log("Computed signature:", computedSignature);
+     console.log("Received signature:", signature);
+
+     const isValid = computedSignature === signature;
+     console.log("Signature verification result:", isValid);
+
+     return isValid;
     } catch (error) {
       console.error("Error verifying webhook request:", error);
       return false;
@@ -213,6 +228,16 @@ export class TwitchService {
     try {
       const token = await this.getAccessToken();
       const secret = crypto.randomUUID();
+      console.log(`Creating subscription for broadcaster ${broadcasterId} with type ${type}`);
+      console.log("Generated secret:", secret);
+
+      // シークレットをまず保存
+      const secretSaved = await this.saveSecret(broadcasterId, secret);
+      if (!secretSaved) {
+        console.error("Failed to save secret before subscription");
+        return false;
+      }
+      console.log("Secret saved successfully");
 
       const response = await fetch(this.EVENTSUB_URL, {
         method: "POST",
