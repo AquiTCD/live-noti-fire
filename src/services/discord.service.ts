@@ -32,6 +32,24 @@ interface InteractionResponse {
   };
 }
 
+export interface DiscordEmbed {
+  title?: string;
+  description?: string;
+  color?: number;
+  url?: string;
+  image?: {
+    url: string;
+  };
+  author?: {
+    name: string;
+  };
+  fields?: Array<{
+    name: string;
+    value: string;
+    inline?: boolean;
+  }>;
+}
+
 interface InteractionVerificationResult {
   isValid: boolean;
   interaction?: DiscordInteraction;
@@ -197,6 +215,26 @@ export class DiscordService {
       return data.id;
     } catch (error) {
       console.error("Error sending message:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * チャンネルにembedメッセージを送信
+   */
+  static async sendEmbedMessage(channelId: string, content: string, embed: DiscordEmbed): Promise<string> {
+    try {
+      const response = await this.fetchDiscordApi(`/channels/${channelId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          content,
+          embeds: [embed]
+        }),
+      });
+      const data = await response.json();
+      return data.id;
+    } catch (error) {
+      console.error("Error sending embed message:", error);
       throw error;
     }
   }

@@ -1,7 +1,7 @@
 import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
 import { userRepository } from "../repositories/user.repository.ts";
 import { GuildRepository } from "../repositories/guild.repository.ts";
-import { DiscordService } from "../services/discord.service.ts";
+import { DiscordService, DiscordEmbed } from "../services/discord.service.ts";
 import { NotificationRepository } from "../repositories/notification.repository.ts";
 import { TwitchService } from "../services/twitch.service.ts";
 
@@ -129,13 +129,39 @@ export class TwitchController {
                 }
               }
 
-              // 通知メッセージを作成
-              const message = `🔴 **${broadcasterName}** が配信を開始しました！\n` +
-                `**${streamTitle}**\n` +
-                `${streamUrl}`;
+              // ストリーム情報を取得
+              const streamInfo = await TwitchService.getStreamInfo(broadcasterId);
+              if (!streamInfo) {
+                console.log(`No stream info found for broadcaster ${broadcasterId}`);
+                return;
+              }
+
+              // embedメッセージを作成
+              const embed: DiscordEmbed = {
+                author: {
+                  name: streamInfo.user_name
+                },
+                title: streamInfo.title,
+                url: streamUrl,
+                color: 0x6441A4, // Twitchのブランドカラー
+                fields: [
+                  {
+                    name: "Game",
+                    value: streamInfo.game_name || "未設定",
+                    inline: true
+                  }
+                ],
+                image: {
+                  url: streamInfo.thumbnail_url
+                }
+              };
 
               // Discord通知を送信
-              const messageId = await DiscordService.sendMessage(guildSettings.channelId, message);
+              const messageId = await DiscordService.sendEmbedMessage(
+                guildSettings.channelId,
+                `🔴 **${broadcasterName}** が配信を開始しました！`,
+                embed
+              );
 
               // 通知メッセージの情報を保存
               await NotificationRepository.saveNotification(
@@ -168,7 +194,7 @@ export class TwitchController {
               await DiscordService.addReaction(
                 notification.channelId,
                 notification.messageId,
-                "🔄"
+                ":sime:"
               );
 
               // 通知メッセージの情報を削除
