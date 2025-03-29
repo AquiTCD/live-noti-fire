@@ -26,7 +26,7 @@ export class TwitchService {
   private static readonly TWITCH_AUTH_URL = "https://id.twitch.tv/oauth2/token";
   private static readonly EVENTSUB_URL = `${this.TWITCH_API_URL}/eventsub/subscriptions`;
   private static readonly CALLBACK_URL = "https://live-noti-fire.deno.dev/twitch/webhooks";
-  private static readonly SECRET_PREFIX = "twitch_secret";
+  private static readonly SECRET_PREFIX = "eventsub_secret";
 
   private static accessToken: string | null = null;
   private static tokenExpiry: number | null = null;
@@ -42,10 +42,11 @@ export class TwitchService {
   /**
    * EventSubのシークレットを保存
    */
-  private static async saveSecret(broadcasterId: string, secret: string): Promise<boolean> {
+  private static async saveSecret(subscriptionId: string, secret: string): Promise<boolean> {
     try {
-      const key = [this.SECRET_PREFIX, broadcasterId];
+      const key = [this.SECRET_PREFIX, subscriptionId];
       const result = await this.kv.set(key, secret);
+      console.log(`Secret saved for subscription ${subscriptionId}`);
       return result.ok;
     } catch (error) {
       console.error("Error saving secret:", error);
@@ -56,10 +57,11 @@ export class TwitchService {
   /**
    * EventSubのシークレットを取得
    */
-  private static async getSecret(broadcasterId: string): Promise<string | null> {
+  private static async getSecret(subscriptionId: string): Promise<string | null> {
     try {
-      const key = [this.SECRET_PREFIX, broadcasterId];
+      const key = [this.SECRET_PREFIX, subscriptionId];
       const result = await this.kv.get<string>(key);
+      console.log(`Secret ${result.value ? "found" : "not found"} for subscription ${subscriptionId}`);
       return result.value;
     } catch (error) {
       console.error("Error getting secret:", error);
@@ -71,40 +73,40 @@ export class TwitchService {
    * Webhookリクエストの署名を検証
    */
   static async verifyWebhookRequest(
-   messageId: string,
-   timestamp: string,
-   signature: string,
-   broadcasterId: string,
-   body: string
- ): Promise<boolean> {
-   try {
-     console.log("Verifying webhook request for broadcaster:", broadcasterId);
-     console.log("Headers received:", {
-       messageId,
-       timestamp,
-       signature
-     });
+    messageId: string,
+    timestamp: string,
+    signature: string,
+    subscriptionId: string,
+    body: string
+  ): Promise<boolean> {
+    try {
+      console.log("Verifying webhook request for subscription:", subscriptionId);
+      console.log("Headers received:", {
+        messageId,
+        timestamp,
+        signature
+      });
 
-     const secret = await this.getSecret(broadcasterId);
-     if (!secret) {
-       console.error(`No secret found for broadcaster ${broadcasterId}`);
-       return false;
-     }
-     console.log("Secret retrieved successfully");
+      const secret = await this.getSecret(subscriptionId);
+      if (!secret) {
+        console.error(`No secret found for subscription ${subscriptionId}`);
+        return false;
+      }
+      console.log("Secret retrieved successfully");
 
-     const message = messageId + timestamp + body;
-     console.log("Message to sign:", message);
+      const message = messageId + timestamp + body;
+      console.log("Message to sign:", message);
 
-     const computedSignature = `sha256=${
-       await this.computeHmac(message, secret)
-     }`;
-     console.log("Computed signature:", computedSignature);
-     console.log("Received signature:", signature);
+      const computedSignature = `sha256=${
+        await this.computeHmac(message, secret)
+      }`;
+      console.log("Computed signature:", computedSignature);
+      console.log("Received signature:", signature);
 
-     const isValid = computedSignature === signature;
-     console.log("Signature verification result:", isValid);
+      const isValid = computedSignature === signature;
+      console.log("Signature verification result:", isValid);
 
-     return isValid;
+      return isValid;
     } catch (error) {
       console.error("Error verifying webhook request:", error);
       return false;
@@ -231,14 +233,6 @@ export class TwitchService {
       console.log(`Creating subscription for broadcaster ${broadcasterId} with type ${type}`);
       console.log("Generated secret:", secret);
 
-      // シークレットをまず保存
-      const secretSaved = await this.saveSecret(broadcasterId, secret);
-      if (!secretSaved) {
-        console.error("Failed to save secret before subscription");
-        return false;
-      }
-      console.log("Secret saved successfully");
-
       const response = await fetch(this.EVENTSUB_URL, {
         method: "POST",
         headers: {
@@ -271,8 +265,12 @@ export class TwitchService {
         throw new Error(`Twitch API error: ${result.error}`);
       }
 
-      // シークレットを保存
-      await this.saveSecret(broadcasterId, secret);
+      // シークレットを保存（サブスクリプションIDをキーとして使用）
+      if (result.data?.id) {
+        await this.saveSecret(result.data.id, secret);
+      } else {
+        throw new Error("No subscription ID received from Twitch");
+      }
 
       console.log(`Successfully subscribed to ${type} events for user ${broadcasterId}`);
       return true;

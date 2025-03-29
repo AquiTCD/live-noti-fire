@@ -70,21 +70,16 @@ export class TwitchController {
         console.log("Received webhook payload:", {
           type: messageType,
           subscriptionType: streamPayload.subscription.type,
+          subscriptionId: streamPayload.subscription.id,
           event: streamPayload.event
         });
-
-        // subscription.conditionからbroadcasterIdを取得
-        const broadcasterId = streamPayload.subscription.condition?.broadcaster_user_id ||
-                            streamPayload.event.broadcaster_user_id;
-
-        console.log("Using broadcasterId:", broadcasterId);
 
         // リクエストの署名を検証
         const isValid = await TwitchService.verifyWebhookRequest(
           messageId,
           timestamp,
           signature,
-          broadcasterId,
+          streamPayload.subscription.id,
           rawBody
         );
 
@@ -95,11 +90,12 @@ export class TwitchController {
 
         // Revocationの場合は処理を終了
         if (messageType === "revocation") {
-          console.log(`Subscription revoked for broadcaster ${broadcasterId}`);
+          console.log(`Subscription revoked: ${streamPayload.subscription.id}`);
           return c.json({ message: "Revocation processed" }, 200);
         }
 
         // 以降は通知処理
+        const broadcasterId = streamPayload.subscription.condition.broadcaster_user_id;
         const broadcasterName = streamPayload.event.broadcaster_user_name;
         const streamUrl = `https://twitch.tv/${streamPayload.event.broadcaster_user_login}`;
 
