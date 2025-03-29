@@ -26,13 +26,103 @@ export class TwitchService {
   private static readonly TWITCH_AUTH_URL = "https://id.twitch.tv/oauth2/token";
   private static readonly EVENTSUB_URL = `${this.TWITCH_API_URL}/eventsub/subscriptions`;
   private static readonly CALLBACK_URL = "https://live-noti-fire.deno.dev/twitch/webhooks";
+  private static readonly SECRET_PREFIX = "twitch_secret";
 
   private static accessToken: string | null = null;
   private static tokenExpiry: number | null = null;
+  private static kv: Deno.Kv;
+
+  static {
+    const initKv = async () => {
+      this.kv = await Deno.openKv();
+    };
+    initKv();
+  }
 
   /**
-   * Twitchのアクセストークンを取得
+   * EventSubのシークレットを保存
    */
+  private static async saveSecret(broadcasterId: string, secret: string): Promise<boolean> {
+    try {
+      const key = [this.SECRET_PREFIX, broadcasterId];
+      const result = await this.kv.set(key, secret);
+      return result.ok;
+    } catch (error) {
+      console.error("Error saving secret:", error);
+      return false;
+    }
+  }
+
+  /**
+   * EventSubのシークレットを取得
+   */
+  private static async getSecret(broadcasterId: string): Promise<string | null> {
+    try {
+      const key = [this.SECRET_PREFIX, broadcasterId];
+      const result = await this.kv.get<string>(key);
+      return result.value;
+    } catch (error) {
+      console.error("Error getting secret:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Webhookリクエストの署名を検証
+   */
+  static async verifyWebhookRequest(
+    messageId: string,
+    timestamp: string,
+    signature: string,
+    broadcasterId: string,
+    body: string
+  ): Promise<boolean> {
+    try {
+      const secret = await this.getSecret(broadcasterId);
+      if (!secret) {
+        console.error(`No secret found for broadcaster ${broadcasterId}`);
+        return false;
+      }
+
+      const message = messageId + timestamp + body;
+      const computedSignature = `sha256=${
+        await this.computeHmac(message, secret)
+      }`;
+
+      return computedSignature === signature;
+    } catch (error) {
+      console.error("Error verifying webhook request:", error);
+      return false;
+    }
+  }
+
+  /**
+   * HMAC-SHA256の計算
+   */
+  private static async computeHmac(message: string, secret: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(message);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      messageData
+    );
+
+    return Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
   /**
    * TwitchのユーザーIDを取得
    */
@@ -104,10 +194,10 @@ export class TwitchService {
   /**
    * Twitchのストリーム開始/終了イベントをサブスクライブ
    */
-  static async subscribeToStreamEvents(twitchUserId: string): Promise<boolean> {
+  static async subscribeToStreamEvents(broadcasterId: string): Promise<boolean> {
     const events = ["stream.online", "stream.offline"];
     const results = await Promise.all(
-      events.map(type => this.createEventSubscription(twitchUserId, type))
+      events.map(type => this.createEventSubscription(broadcasterId, type))
     );
 
     return results.every(result => result);
@@ -117,11 +207,12 @@ export class TwitchService {
    * 特定のイベントタイプのサブスクリプションを作成
    */
   private static async createEventSubscription(
-    twitchUserId: string,
+    broadcasterId: string,
     type: string
   ): Promise<boolean> {
     try {
       const token = await this.getAccessToken();
+      const secret = crypto.randomUUID();
 
       const response = await fetch(this.EVENTSUB_URL, {
         method: "POST",
@@ -134,12 +225,12 @@ export class TwitchService {
           type,
           version: "1",
           condition: {
-            broadcaster_user_id: twitchUserId,
+            broadcaster_user_id: broadcasterId,
           },
           transport: {
             method: "webhook",
             callback: this.CALLBACK_URL,
-            secret: crypto.randomUUID(), // 各サブスクリプションごとにユニークなシークレットを生成
+            secret: secret,
           },
         }),
       });
@@ -155,7 +246,10 @@ export class TwitchService {
         throw new Error(`Twitch API error: ${result.error}`);
       }
 
-      console.log(`Successfully subscribed to ${type} events for user ${twitchUserId}`);
+      // シークレットを保存
+      await this.saveSecret(broadcasterId, secret);
+
+      console.log(`Successfully subscribed to ${type} events for user ${broadcasterId}`);
       return true;
 
     } catch (error) {
