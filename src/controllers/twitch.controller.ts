@@ -26,7 +26,6 @@ interface StreamEvent {
     broadcaster_user_name: string;
     type?: string;
     started_at?: string;
-    title?: string;
   };
 }
 
@@ -106,7 +105,12 @@ export class TwitchController {
         }
 
         if (streamPayload.subscription.type === "stream.online") {
-          const streamTitle = streamPayload.event.title || "";
+          // ストリーム情報を取得
+          const streamInfo = await TwitchService.getStreamInfo(broadcasterId);
+          if (!streamInfo) {
+            console.log(`No stream info found for broadcaster ${broadcasterId}`);
+            return c.json({ message: "No stream info found" }, 200);
+          }
 
           // 各ギルドに通知を送信
           const notificationPromises = guildIds.map(async (guildId) => {
@@ -121,19 +125,12 @@ export class TwitchController {
               // ルールに基づいて通知を送信するか判断
               if (guildSettings.rules && guildSettings.rules.length > 0) {
                 const matchesRule = guildSettings.rules.some(rule =>
-                  streamTitle.toLowerCase().includes(rule.toLowerCase())
+                  streamInfo.title.toLowerCase().includes(rule.toLowerCase())
                 );
                 if (!matchesRule) {
                   console.log(`Stream title does not match rules for guild ${guildId}`);
                   return;
                 }
-              }
-
-              // ストリーム情報を取得
-              const streamInfo = await TwitchService.getStreamInfo(broadcasterId);
-              if (!streamInfo) {
-                console.log(`No stream info found for broadcaster ${broadcasterId}`);
-                return;
               }
 
               // embedメッセージを作成
@@ -146,7 +143,7 @@ export class TwitchController {
                 color: 0x6441A4, // Twitchのブランドカラー
                 fields: [
                   {
-                    name: "Game",
+                    name: "ゲーム",
                     value: streamInfo.game_name || "未設定",
                     inline: true
                   }
