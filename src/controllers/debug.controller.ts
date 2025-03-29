@@ -33,30 +33,71 @@ export class DebugController {
     }
   }
 
- /**
-  * KVストアの内容を全て削除するエンドポイント
-  */
- static async clearKvContents(c: Context) {
-   try {
-     const result = await userRepository.clearAllEntries();
+  /**
+   * KVストアの内容を全て削除するエンドポイント
+   */
+  static async clearKvContents(c: Context) {
+    try {
+      const result = await userRepository.clearAllEntries();
 
-     if (!result) {
-       return c.json({
-         error: "Failed to clear KV contents",
-       }, 500);
-     }
+      if (!result) {
+        return c.json({
+          error: "Failed to clear KV contents",
+        }, 500);
+      }
 
-     return c.json({
-       message: "Successfully cleared all KV contents",
-     }, 200);
+      return c.json({
+        message: "Successfully cleared all KV contents",
+      }, 200);
 
-   } catch (error: unknown) {
-     console.error("Error in clearKvContents:", error);
+    } catch (error: unknown) {
+      console.error("Error in clearKvContents:", error);
 
-     return c.json({
-       error: "Failed to clear KV contents",
-       details: error instanceof Error ? error.message : "Unknown error",
-     }, 500);
-   }
- }
+      return c.json({
+        error: "Failed to clear KV contents",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }, 500);
+    }
+  }
+
+  /**
+   * KVストアの指定されたキーのエントリーを削除するエンドポイント
+   */
+  static async deleteKvEntry(c: Context) {
+    try {
+      const { key } = await c.req.json();
+
+      if (!Array.isArray(key) || key.length === 0) {
+        return c.json({
+          error: "Invalid request body: key must be a non-empty array",
+          example: {
+            key: ["prefix", "value"]
+          }
+        }, 400);
+      }
+
+      const result = await userRepository.deleteByKey(key);
+
+      if (!result) {
+        return c.json({
+          error: "Failed to delete KV entry",
+        }, 500);
+      }
+
+      return c.json({
+        message: "Successfully deleted KV entry",
+        data: {
+          key
+        }
+      }, 200);
+
+    } catch (error: unknown) {
+      console.error("Error in deleteKvEntry:", error);
+
+      return c.json({
+        error: "Failed to delete KV entry",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }, 500);
+    }
+  }
 }

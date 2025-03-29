@@ -19,6 +19,7 @@ app.post("/twitch/webhooks", TwitchController.handleWebhook);
 // デバッグ用エンドポイント
 app.get("/debug/kv", DebugController.showKvContents);
 app.delete("/debug/kv", DebugController.clearKvContents);
+app.post("/debug/kv/delete", DebugController.deleteKvEntry);
 
 // Healthcheck エンドポイント
 app.get("/health", (c: Context) => {
