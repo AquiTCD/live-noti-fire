@@ -198,7 +198,7 @@ export class TwitchController {
               await DiscordService.addReaction(
                 notification.channelId,
                 notification.messageId,
-                "\:sime:"
+                "🚫"
               );
 
               // 通知メッセージの情報を削除
