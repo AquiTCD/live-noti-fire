@@ -227,23 +227,6 @@ export class DiscordController {
         return c.json({ error: validation.error }, 400);
       }
 
-      // 既存の登録確認
-      const existingUser = await userRepository.getByDiscordId(validation.userId);
-      if (existingUser) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "このDiscordアカウントは既に登録されています。",
-            error: true,
-          }
-        );
-
-        return c.json({
-          error: "User already registered",
-          data: existingUser,
-        }, 400);
-      }
 
       // ギルドIDが必要
       if (!interaction.guild_id) {
