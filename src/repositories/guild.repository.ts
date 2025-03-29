@@ -49,4 +49,18 @@ export class GuildRepository {
       return null;
     }
   }
+
+  /**
+   * ギルドの通知設定を取得
+   */
+  static async getGuildSettings(guildId: string): Promise<GuildStorage | null> {
+    try {
+      const key = [this.KEY_PREFIX, guildId];
+      const result = await this.kv.get<GuildStorage>(key);
+      return result.value ?? null;
+    } catch (error) {
+      console.error('Error getting guild settings:', error);
+      return null;
+    }
+  }
 }

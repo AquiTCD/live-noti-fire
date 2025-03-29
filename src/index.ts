@@ -3,6 +3,7 @@ import { serve } from "std/http/server.ts";
 import type { Context } from "hono";
 import { DiscordController } from "./controllers/discord.controller.ts";
 import { DebugController } from "./controllers/debug.controller.ts";
+import { TwitchController } from "./controllers/twitch.controller.ts";
 import { validateEnv } from "./types/env.ts";
 
 const app = new Hono();
@@ -11,6 +12,9 @@ const app = new Hono();
 app.post("/discord/interactions", DiscordController.handleInteraction);
 app.post("/discord/command_register", DiscordController.handleCommandRegister);
 app.post("/discord/test", DiscordController.handleTest);
+
+// Twitch エンドポイント
+app.post("/twitch/webhooks", TwitchController.handleWebhook);
 
 // デバッグ用エンドポイント
 app.get("/debug/kv", DebugController.showKvContents);
