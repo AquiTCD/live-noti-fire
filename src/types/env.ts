@@ -7,6 +7,7 @@ export interface Env {
   DISCORD_PUBLIC_KEY: string;
   TWITCH_CLIENT_ID: string;
   TWITCH_CLIENT_SECRET: string;
+  TWITCH_SUBSCRIPTION_SECRET: string;
 }
 
 export const REQUIRED_ENV_VARS = [
@@ -16,6 +17,7 @@ export const REQUIRED_ENV_VARS = [
   'DISCORD_PUBLIC_KEY',
   'TWITCH_CLIENT_ID',
   'TWITCH_CLIENT_SECRET',
+  'TWITCH_SUBSCRIPTION_SECRET',
 ] as const;
 
 /**

@@ -79,7 +79,6 @@ export class TwitchController {
           messageId,
           timestamp,
           signature,
-          streamPayload.subscription.id,
           rawBody
         );
 
