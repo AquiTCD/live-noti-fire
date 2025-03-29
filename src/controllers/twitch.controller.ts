@@ -40,6 +40,8 @@ export class TwitchController {
       const rawBody = await c.req.text();
       const payload = JSON.parse(rawBody);
 
+      console.log("Received Twitch webhook:", messageType);
+
       // Verificationリクエストの処理
       if (messageType === "webhook_callback_verification") {
         return c.json({
