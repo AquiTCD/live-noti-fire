@@ -5,7 +5,8 @@ Twitchの配信開始/終了をDiscordで通知するBotです。
 ## Features
 
 - サーバーへのBot追加時に自動でコマンドを登録
-- `/live-register` コマンドでTwitchアカウントとDiscordアカウントを連携
+- `/add-streamer` コマンドでTwitchアカウントとDiscordアカウントを連携
+- `/notify-settings` コマンドで通知チャンネルと通知ルールを設定
 - 配信開始時に自動で通知メッセージを送信
 - 配信終了時にメッセージにリアクションを追加
 
@@ -87,34 +88,71 @@ deno task dev
 ```
 
 ## Available Commands
-
-### /live-register
+### /add-streamer
 
 Twitchアカウントの配信通知を登録します。
 
 ```
-/live-register twitch_id:あなたのTwitchユーザーID
+/add-streamer twitch_username:あなたのTwitchユーザー名
+```
+
+### /notify-settings
+
+配信通知の設定を行います。
+
+```
+/notify-settings channel:通知を送信するチャンネル rules:通知ルール（オプション）
+```
+
+- `channel`: 通知を送信するDiscordチャンネル（必須）
+- `rules`: 通知ルール（カンマ区切りで複数指定可、オプション）
 ```
 
 ## API Endpoints
 
-### Discord Command Endpoint
+### Discord Endpoints
 ```
-POST /discord/commands
+POST /discord/interactions
 ```
-Discordのスラッシュコマンドを受け付けます。
+Discordのスラッシュコマンドやインタラクションを受け付けます。
 
-### Discord Guild Event Endpoint
 ```
-POST /discord/guild
+POST /discord/command_register
 ```
-新しいサーバーへのBot追加イベントを処理します。
+スラッシュコマンドを登録します。
 
-### Debug Endpoint
+```
+POST /discord/test
+```
+テストメッセージを送信します。
+
+### Twitch Endpoint
+```
+POST /twitch/webhooks
+```
+Twitchからのウェブフックを受け付けます。
+
+### Debug Endpoints
 ```
 GET /debug/kv
 ```
-KVストアの現在の状態を確認できます。
+KVストアの現在の状態を確認します。
+
+```
+DELETE /debug/kv
+```
+KVストアの内容を全てクリアします。
+
+```
+POST /debug/kv/delete
+```
+KVストアから特定のエントリを削除します。
+
+### Health Endpoint
+```
+GET /health
+```
+サーバーの稼働状態を確認します。
 
 ## 補足情報
 
@@ -137,21 +175,27 @@ sequenceDiagram
     participant KV
     participant Twitch
 
-    User->>Discord: /live-register command
-    Discord->>App: POST /discord/commands
-    Note right of App: Validate command
+    User->>Discord: /add-streamer command
+    Discord->>App: POST /discord/interactions
+    Note right of App: Validate command & signature
 
     alt Valid Command
-        App->>KV: Store user registration info
-        App->>Twitch: Subscribe to stream events
+        App->>Twitch: Get broadcaster ID
 
-        alt Subscription Success
-            Twitch-->>App: Challenge callback
-            App->>KV: Update registration as complete
-            App-->>Discord: Send success message
-        else Subscription Failed
-            App->>KV: Update registration as failed
-            App-->>Discord: Send error message
+        alt Broadcaster Found
+            App->>KV: Store user registration info
+            App->>Twitch: Subscribe to stream events
+
+            alt Subscription Success
+                App->>KV: Update registration as complete
+                App-->>Discord: Send success message
+            else Subscription Failed
+                App->>KV: Update registration as failed
+                App-->>Discord: Send partial success message
+            end
+
+        else Broadcaster Not Found
+            App-->>Discord: Send broadcaster not found error
         end
 
     else Invalid Command
@@ -167,7 +211,7 @@ sequenceDiagram
     participant KV
     participant Discord
 
-    Twitch->>App: POST /webhook/twitch (stream.online)
+    Twitch->>App: POST /twitch/webhooks (stream.online)
     Note right of App: Validate webhook
 
     alt Valid Webhook
@@ -194,7 +238,7 @@ sequenceDiagram
     participant KV
     participant Discord
 
-    Twitch->>App: POST /webhook/twitch (stream.offline)
+    Twitch->>App: POST /twitch/webhooks (stream.offline)
     Note right of App: Validate webhook
 
     alt Valid Webhook
