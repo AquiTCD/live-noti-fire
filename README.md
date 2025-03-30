@@ -121,11 +121,6 @@ POST /discord/command_register
 ```
 スラッシュコマンドを登録します。
 
-```
-POST /discord/test
-```
-テストメッセージを送信します。
-
 ### Twitch Endpoint
 ```
 POST /twitch/webhooks

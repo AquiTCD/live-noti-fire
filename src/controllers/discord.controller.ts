@@ -116,42 +116,6 @@ export class DiscordController {
   }
 
   /**
-   * テストメッセージ送信エンドポイントの処理
-   */
-  static async handleTest(c: Context) {
-    try {
-      const { guildId } = await c.req.json() as { guildId: string };
-
-      if (!guildId) {
-        return c.json({
-          error: "Guild ID is required"
-        }, 400);
-      }
-
-      const channelId = await GuildRepository.getNotifyChannel(guildId);
-      if (!channelId) {
-        return c.json({
-          error: "Notification channel not set for this guild"
-        }, 400);
-      }
-
-      const messageId = await DiscordService.sendMessage(channelId, "hello");
-
-      return c.json({
-        message: "Test message sent successfully",
-        messageId
-      }, 200);
-
-    } catch (error) {
-      console.error("Error in handleTest:", error);
-      return c.json({
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error"
-      }, 500);
-    }
-  }
-
-  /**
    * Discord Interactions エンドポイントの処理
    */
   static async handleInteraction(c: Context) {

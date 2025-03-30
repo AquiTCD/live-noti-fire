@@ -11,15 +11,14 @@ const app = new Hono();
 // Discord エンドポイント
 app.post("/discord/interactions", DiscordController.handleInteraction);
 app.post("/discord/command_register", DiscordController.handleCommandRegister);
-app.post("/discord/test", DiscordController.handleTest);
 
 // Twitch エンドポイント
 app.post("/twitch/webhooks", TwitchController.handleWebhook);
 
 // デバッグ用エンドポイント
-app.get("/debug/kv", DebugController.showKvContents);
-app.delete("/debug/kv", DebugController.clearKvContents);
-app.post("/debug/kv/delete", DebugController.deleteKvEntry);
+// app.get("/debug/kv", DebugController.showKvContents);
+// app.delete("/debug/kv", DebugController.clearKvContents);
+// app.post("/debug/kv/delete", DebugController.deleteKvEntry);
 
 // Healthcheck エンドポイント
 app.get("/health", (c: Context) => {
