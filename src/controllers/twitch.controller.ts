@@ -4,6 +4,7 @@ import { GuildRepository } from "../repositories/guild.repository.ts";
 import { DiscordService, DiscordEmbed } from "../services/discord.service.ts";
 import { NotificationRepository } from "../repositories/notification.repository.ts";
 import { TwitchService } from "../services/twitch.service.ts";
+import { ActiveStreamRepository } from "../repositories/active-stream.repository.ts";
 
 interface StreamEvent {
   subscription: {
@@ -112,6 +113,15 @@ export class TwitchController {
             return c.json({ message: "No stream info found" }, 200);
           }
 
+          // すでに配信中なら通知しない
+          const isActive = await ActiveStreamRepository.isActive(broadcasterId, streamInfo.id);
+          if (isActive) {
+            console.log(`Already notified for stream ${streamInfo.id}`);
+            return c.json({ message: "Already notified" }, 200);
+          }
+          // 配信中として記録
+          await ActiveStreamRepository.setActive(broadcasterId, streamInfo.id);
+
           // 各ギルドに通知を送信
           const notificationPromises = guildIds.map(async (guildId) => {
             try {
@@ -191,6 +201,13 @@ export class TwitchController {
           // すべての通知の完了を待つ
           await Promise.all(notificationPromises);
         } else if (streamPayload.subscription.type === "stream.offline") {
+          // ストリーム情報を取得
+          const streamInfo = await TwitchService.getStreamInfo(broadcasterId);
+          if (streamInfo) {
+            // 配信中ストリームを削除
+            await ActiveStreamRepository.deleteActive(broadcasterId, streamInfo.id);
+          }
+
           // 各ギルドの通知メッセージにリアクションを追加
           const reactionPromises = guildIds.map(async (guildId) => {
             try {
