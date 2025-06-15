@@ -24,7 +24,7 @@ Twitchの配信開始/終了をDiscordで通知するBotです。
 
 2. Botの設定
 - 「Bot」タブで以下の設定を有効化：
-  - `Presence Intent`
+  - `Presence Intent` 
   - `Server Members Intent`
   - `Message Content Intent`
 
@@ -106,7 +106,7 @@ Twitchアカウントの配信通知を登録します。
 
 - `channel`: 通知を送信するDiscordチャンネル（必須）
 - `rules`: 通知ルール（カンマ区切りで複数指定可、オプション）
-```
+
 
 ## API Endpoints
 
