@@ -126,7 +126,9 @@ export class TwitchController {
           await ActiveStreamRepository.setActive(broadcasterId, streamInfo.id);
 
           // Xへのポスト（ターゲットユーザーのみ）
-          if (broadcasterId === getEnvVar("X_TARGET_TWITCH_ID")) {
+          const xTargetId = getEnvVar("X_TARGET_TWITCH_ID");
+          console.log(`X Post Check: broadcasterId=${broadcasterId}, targetId=${xTargetId}`);
+          if (broadcasterId === xTargetId) {
             const isXPosted = await XPostHistoryRepository.isPosted(streamInfo.id);
             if (!isXPosted) {
               // 非同期で実行（Discord通知を優先）
