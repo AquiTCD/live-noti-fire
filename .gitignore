@@ -16,3 +16,6 @@ Thumbs.db
 
 # specific command
 delete.sh
+# Docs
+docs/notes/
+docs/ai/

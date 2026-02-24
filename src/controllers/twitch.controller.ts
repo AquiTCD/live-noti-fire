@@ -5,6 +5,9 @@ import { DiscordService, DiscordEmbed } from "../services/discord.service.ts";
 import { NotificationRepository } from "../repositories/notification.repository.ts";
 import { TwitchService } from "../services/twitch.service.ts";
 import { ActiveStreamRepository } from "../repositories/active-stream.repository.ts";
+import { XService } from "../services/x.service.ts";
+import { XPostHistoryRepository } from "../repositories/x-post-history.repository.ts";
+import { getEnvVar } from "../types/env.ts";
 
 interface StreamEvent {
   subscription: {
@@ -121,6 +124,22 @@ export class TwitchController {
           }
           // 配信中として記録
           await ActiveStreamRepository.setActive(broadcasterId, streamInfo.id);
+
+          // Xへのポスト（ターゲットユーザーのみ）
+          if (broadcasterId === getEnvVar("X_TARGET_TWITCH_ID")) {
+            const isXPosted = await XPostHistoryRepository.isPosted(streamInfo.id);
+            if (!isXPosted) {
+              // 非同期で実行（Discord通知を優先）
+              (async () => {
+                const success = await XService.postStreamTweet(streamInfo.title, streamUrl);
+                if (success) {
+                  await XPostHistoryRepository.setPosted(streamInfo.id);
+                }
+              })();
+            } else {
+              console.log(`Already posted to X for stream ${streamInfo.id}`);
+            }
+          }
 
           // 各ギルドに通知を送信
           const notificationPromises = guildIds.map(async (guildId) => {

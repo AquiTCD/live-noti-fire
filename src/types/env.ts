@@ -8,6 +8,12 @@ export interface Env {
   TWITCH_CLIENT_ID: string;
   TWITCH_CLIENT_SECRET: string;
   TWITCH_SUBSCRIPTION_SECRET: string;
+  X_CONSUMER_KEY: string;
+  X_CONSUMER_SECRET: string;
+  X_ACCESS_TOKEN: string;
+  X_ACCESS_SECRET: string;
+  X_TARGET_TWITCH_ID: string;
+  X_POST_PREFIX?: string;
 }
 
 export const REQUIRED_ENV_VARS = [
@@ -18,6 +24,11 @@ export const REQUIRED_ENV_VARS = [
   'TWITCH_CLIENT_ID',
   'TWITCH_CLIENT_SECRET',
   'TWITCH_SUBSCRIPTION_SECRET',
+  'X_CONSUMER_KEY',
+  'X_CONSUMER_SECRET',
+  'X_ACCESS_TOKEN',
+  'X_ACCESS_SECRET',
+  'X_TARGET_TWITCH_ID',
 ] as const;
 
 /**
