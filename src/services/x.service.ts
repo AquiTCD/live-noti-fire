@@ -6,14 +6,21 @@ export class XService {
   /**
    * 配信開始をツイートする
    */
-  static async postStreamTweet(title: string, url: string): Promise<boolean> {
+  static async postStreamTweet(title: string, url: string, gameName?: string): Promise<boolean> {
     try {
       const prefix = this.getPrefix();
-      const text = `${prefix} ${title} ${url}`.trim();
 
-      console.log(`Posting to X: ${text}`);
+      let text = `${prefix}\n${title}`;
+      if (gameName && gameName !== "未設定") {
+        // ハッシュタグにするためスペースを除去
+        const hashtag = gameName.replace(/\s+/g, "");
+        text += `\n#${hashtag}`;
+      }
+      text += `\n\n${url}`;
 
-      const response = await this.postTweet(text);
+      console.log(`Posting to X:\n${text}`);
+
+      const response = await this.postTweet(text.trim());
       if (!response.ok) {
         const error = await response.text();
         console.error(`Failed to post to X: ${error}`);

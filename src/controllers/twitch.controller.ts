@@ -131,7 +131,7 @@ export class TwitchController {
             if (!isXPosted) {
               // 非同期で実行（Discord通知を優先）
               (async () => {
-                const success = await XService.postStreamTweet(streamInfo.title, streamUrl);
+                const success = await XService.postStreamTweet(streamInfo.title, streamUrl, streamInfo.game_name);
                 if (success) {
                   await XPostHistoryRepository.setPosted(streamInfo.id);
                 }
