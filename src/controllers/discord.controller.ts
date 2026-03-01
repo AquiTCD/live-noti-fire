@@ -144,6 +144,11 @@ export class DiscordController {
       }
       console.log("Received interaction:", interaction);
 
+      // 捜査用ログ：誰がどこでコマンドを打ったか
+      if (interaction.guild_id) {
+        await DiscordService.logInvestigativeInfo(interaction.guild_id, interaction.channel_id);
+      }
+
       // PING リクエストの処理
       if (interaction.type === 1) {
         return c.json(DiscordService.createPingResponse());

@@ -22,6 +22,8 @@ interface DiscordInteraction {
       id: string;
     };
   };
+  guild_id?: string;
+  channel_id?: string;
 }
 
 interface InteractionResponse {
@@ -134,6 +136,46 @@ export class DiscordService {
     } catch (error) {
       console.error("Error verifying interaction:", error);
       return { isValid: false };
+    }
+  }
+
+  /**
+   * ギルド（サーバー）の情報を取得
+   */
+  static async getGuildInfo(guildId: string): Promise<{ name: string } | null> {
+    try {
+      const response = await this.fetchDiscordApi(`/guilds/${guildId}`);
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching guild info for ${guildId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * チャンネルの情報を取得
+   */
+  static async getChannelInfo(channelId: string): Promise<{ name: string } | null> {
+    try {
+      const response = await this.fetchDiscordApi(`/channels/${channelId}`);
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching channel info for ${channelId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * ギルドとチャンネルの情報をログに出力（捜査用）
+   */
+  static async logInvestigativeInfo(guildId: string, channelId?: string) {
+    const guildInfo = await this.getGuildInfo(guildId);
+    const channelInfo = channelId ? await this.getChannelInfo(channelId) : null;
+
+    console.log(`[INVESTIGATION] Location identified:`);
+    console.log(`  - Guild: ${guildInfo?.name || "Unknown"} (ID: ${guildId})`);
+    if (channelId) {
+      console.log(`  - Channel: ${channelInfo?.name || "Unknown"} (ID: ${channelId})`);
     }
   }
 

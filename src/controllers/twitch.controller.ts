@@ -151,6 +151,9 @@ export class TwitchController {
                 return;
               }
 
+              // 捜査用ログ：誰のどのチャンネルに送ろうとしているか
+              await DiscordService.logInvestigativeInfo(guildId, guildSettings.channel_id);
+
               // ルールに基づいて通知を送信するか判断
               if (guildSettings.rules && guildSettings.rules.length > 0) {
                 const matchesRule = guildSettings.rules.some(rule =>
