@@ -117,7 +117,7 @@ export class TwitchController {
           }
 
           // すでに配信中なら通知しない
-          const isActive = await ActiveStreamRepository.isActive(broadcasterId, streamInfo.id);
+          const isActive = await ActiveStreamRepository.isActive(broadcasterId);
           if (isActive) {
             console.log(`Already notified for stream ${streamInfo.id}`);
             return c.json({ message: "Already notified" }, 200);
@@ -150,6 +150,9 @@ export class TwitchController {
                 console.log(`No notification settings found for guild ${guildId}`);
                 return;
               }
+
+              // 捜査用ログ：誰のどのチャンネルに送ろうとしているか
+              await DiscordService.logInvestigativeInfo(guildId, guildSettings.channel_id);
 
               // ルールに基づいて通知を送信するか判断
               if (guildSettings.rules && guildSettings.rules.length > 0) {
@@ -220,12 +223,8 @@ export class TwitchController {
           // すべての通知の完了を待つ
           await Promise.all(notificationPromises);
         } else if (streamPayload.subscription.type === "stream.offline") {
-          // ストリーム情報を取得
-          const streamInfo = await TwitchService.getStreamInfo(broadcasterId);
-          if (streamInfo) {
-            // 配信中ストリームを削除
-            await ActiveStreamRepository.deleteActive(broadcasterId, streamInfo.id);
-          }
+          // 配信中フラグを無条件で削除（offlineイベント時はstreamInfoがnullになるため）
+          await ActiveStreamRepository.deleteActive(broadcasterId);
 
           // 各ギルドの通知メッセージにリアクションを追加
           const reactionPromises = guildIds.map(async (guildId) => {

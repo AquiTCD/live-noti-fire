@@ -17,8 +17,9 @@ export class ActiveStreamRepository {
    */
   static async setActive(broadcasterId: string, streamId: string): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId, streamId];
-      const result = await this.kv.set(key, true);
+      const key = [this.KEY_PREFIX, broadcasterId];
+      // 配信IDを値として保存
+      const result = await this.kv.set(key, streamId);
       return result.ok;
     } catch (error) {
       console.error("Error setting active stream:", error);
@@ -29,10 +30,10 @@ export class ActiveStreamRepository {
   /**
    * 配信中ストリームかどうか確認
    */
-  static async isActive(broadcasterId: string, streamId: string): Promise<boolean> {
+  static async isActive(broadcasterId: string): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId, streamId];
-      const result = await this.kv.get<boolean>(key);
+      const key = [this.KEY_PREFIX, broadcasterId];
+      const result = await this.kv.get<string>(key);
       return !!result.value;
     } catch (error) {
       console.error("Error checking active stream:", error);
@@ -43,9 +44,9 @@ export class ActiveStreamRepository {
   /**
    * 配信終了時にストリームを削除
    */
-  static async deleteActive(broadcasterId: string, streamId: string): Promise<boolean> {
+  static async deleteActive(broadcasterId: string): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId, streamId];
+      const key = [this.KEY_PREFIX, broadcasterId];
       await this.kv.delete(key);
       return true;
     } catch (error) {

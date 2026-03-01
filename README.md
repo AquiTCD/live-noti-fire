@@ -29,12 +29,9 @@ Twitchの配信開始/終了をDiscordで通知するBotです。
   - `Message Content Intent`
 
 3. Botをサーバーに追加
-```
-https://discord.com/oauth2/authorize?client_id=1353969216751013919&permissions=2147485760&integration_type=0&scope=bot
-```
+Discord Developer Portalの「OAuth2 > URL Generator」で `bot` と `applications.commands` スコープを選択し、必要な権限（メッセージ送信、リアクション追加）を付与したURLを生成して、自分のサーバーに招待してください。
 
-このURLにアクセスして、Botを追加したいDiscordサーバーを選択してください。
-Botの追加時に自動的にスラッシュコマンドが登録されます。
+ボットの追加時に自動的にスラッシュコマンドが登録されます。
 
 必要な権限:
 - メッセージの送信
@@ -127,21 +124,7 @@ POST /twitch/webhooks
 ```
 Twitchからのウェブフックを受け付けます。
 
-### Debug Endpoints
-```
-GET /debug/kv
-```
-KVストアの現在の状態を確認します。
-
-```
-DELETE /debug/kv
-```
-KVストアの内容を全てクリアします。
-
-```
-POST /debug/kv/delete
-```
-KVストアから特定のエントリを削除します。
+(デバッグエンドポイントはセキュリティのため無効化されています)
 
 ### Health Endpoint
 ```

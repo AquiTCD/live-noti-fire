@@ -15,7 +15,7 @@ app.post("/discord/command_register", DiscordController.handleCommandRegister);
 // Twitch エンドポイント
 app.post("/twitch/webhooks", TwitchController.handleWebhook);
 
-// デバッグ用エンドポイント
+// デバッグ用エンドポイント（セキュリティのため、必要な時だけコメントアウトを外してください）
 // app.get("/debug/kv", DebugController.showKvContents);
 // app.delete("/debug/kv", DebugController.clearKvContents);
 // app.post("/debug/kv/delete", DebugController.deleteKvEntry);
