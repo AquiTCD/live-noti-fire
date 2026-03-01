@@ -2,7 +2,8 @@
   "tasks": {
     "dev": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-kv src/index.ts",
     "start": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-kv src/index.ts",
-    "register-commands": "deno run --allow-net --allow-env scripts/register-commands.ts"
+    "register-commands": "deno run --allow-net --allow-env scripts/register-commands.ts",
+    "cleanup": "deno run --allow-net --allow-env --unstable-kv scripts/cleanup_kv.ts"
   },
   "imports": {
     "hono": "https://deno.land/x/hono@v3.12.0/mod.ts",
