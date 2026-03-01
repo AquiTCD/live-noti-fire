@@ -149,6 +149,20 @@ export class DiscordController {
         await DiscordService.logInvestigativeInfo(interaction.guild_id, interaction.channel_id);
       }
 
+      // ギルドIDのホワイトリストチェック
+      if (interaction.type !== 1 && !DiscordService.isAllowedGuild(interaction.guild_id)) {
+        console.warn(`Unauthorized access attempt: guild_id=${interaction.guild_id}, type=${interaction.type}`);
+        await DiscordService.respondToInteraction(
+          interaction.id,
+          interaction.token,
+          {
+            message: "このサーバー（またはDM）ではこのボットの使用は許可されていません。管理者に問い合わせてください。",
+            error: true,
+          }
+        );
+        return c.json({ error: "Unauthorized access" }, 403);
+      }
+
       // PING リクエストの処理
       if (interaction.type === 1) {
         return c.json(DiscordService.createPingResponse());
