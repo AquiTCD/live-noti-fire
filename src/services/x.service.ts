@@ -1,7 +1,7 @@
 import { getEnvVar } from "../types/env.ts";
 
 export class XService {
-  private static readonly X_API_URL = "https://api.twitter.com/2/tweets";
+  private static readonly X_API_URL = "https://api.x.com/2/tweets";
 
   /**
    * 配信開始をツイートする
@@ -51,7 +51,7 @@ export class XService {
 
     const oauthParams: Record<string, string> = {
       oauth_consumer_key: consumerKey,
-      oauth_nonce: Math.random().toString(36).substring(2),
+      oauth_nonce: crypto.randomUUID(),
       oauth_signature_method: "HMAC-SHA1",
       oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
       oauth_token: accessToken,
@@ -80,6 +80,8 @@ export class XService {
       headers: {
         "Authorization": authHeader,
         "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "live-noti-fire/1.0.0",
       },
       body: JSON.stringify(body),
     });
