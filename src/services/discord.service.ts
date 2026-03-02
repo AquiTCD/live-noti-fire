@@ -340,4 +340,21 @@ export class DiscordService {
       twitchId,
     };
   }
+
+  /**
+   * ギルドIDが許可されているかチェック
+   */
+  static isAllowedGuild(guildId?: string): boolean {
+    const allowedGuildIdsStr = Deno.env.get("DISCORD_ALLOWED_GUILD_IDS");
+    if (!allowedGuildIdsStr) {
+      return true; // ホワイトリストが設定されていない場合は全て許可
+    }
+
+    if (!guildId) {
+      return false; // ホワイトリスト設定ありでギルドIDなし（DM等）は不許可
+    }
+
+    const allowedGuildIds = allowedGuildIdsStr.split(",").map((id: string) => id.trim());
+    return allowedGuildIds.includes(guildId);
+  }
 }

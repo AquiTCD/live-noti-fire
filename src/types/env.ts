@@ -14,6 +14,7 @@ export interface Env {
   X_ACCESS_SECRET: string;
   X_TARGET_TWITCH_ID: string;
   X_POST_PREFIX?: string;
+  DISCORD_ALLOWED_GUILD_IDS?: string;
 }
 
 export const REQUIRED_ENV_VARS = [

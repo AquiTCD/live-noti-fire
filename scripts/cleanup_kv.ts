@@ -5,10 +5,11 @@
  * deno run --allow-net --allow-env --unstable-kv scripts/cleanup_kv.ts [KV_URL]
  */
 
-const kvUrl = Deno.args[0]; // 引数があれば本番のKV、なければローカルのKVを開く
-const kv = await Deno.openKv(kvUrl);
-
-async function cleanup() {
+/**
+ * KVデータのクリーンアップを実行
+ */
+export async function cleanup(kvUrl?: string) {
+  const kv = await Deno.openKv(kvUrl);
   console.log("🚀 Starting KV Cleanup...");
 
   // 1. 旧形式の active_streams を削除 (永続的な管理のため)
@@ -29,8 +30,9 @@ async function cleanup() {
   // 犯人を特定してから手動で削除するか、捜査後に再度追加してください。
 
   console.log("\n✨ KV Cleanup complete!");
+  kv.close();
 }
 
 if (import.meta.main) {
-  await cleanup();
+  await cleanup(Deno.args[0]);
 }

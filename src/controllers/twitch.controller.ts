@@ -154,6 +154,16 @@ export class TwitchController {
               // 捜査用ログ：誰のどのチャンネルに送ろうとしているか
               await DiscordService.logInvestigativeInfo(guildId, guildSettings.channel_id);
 
+              // ギルドが許可されているかチェック
+              if (!DiscordService.isAllowedGuild(guildId)) {
+                console.warn(`Unauthorized notification attempted for guild ${guildId}`);
+                await DiscordService.sendMessage(
+                  guildSettings.channel_id,
+                  "不正利用を検知しました。ご自身でデプロイして運用してください。\nおめえに使わせるBotはねぇ！！"
+                );
+                return;
+              }
+
               // ルールに基づいて通知を送信するか判断
               if (guildSettings.rules && guildSettings.rules.length > 0) {
                 const matchesRule = guildSettings.rules.some(rule =>
