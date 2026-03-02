@@ -38,6 +38,15 @@ if (import.meta.main) {
   }
 
   console.log("Server starting on http://localhost:8000");
+
+  // デプロイ時の1回限りのタスク（必要に応じてコメントアウトまたは削除してください）
+  try {
+    const { cleanup } = await import("../scripts/cleanup_kv.ts");
+    await cleanup();
+  } catch (error) {
+    console.error("Failed to run cleanup task:", error);
+  }
+
   await serve(app.fetch, { port: 8000 });
 
   Deno.cron("Continuous Request", "*/2 * * * *", () => {
