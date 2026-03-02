@@ -39,13 +39,17 @@ if (import.meta.main) {
 
   console.log("Server starting on http://localhost:8000");
 
-  // デプロイ時の1回限りのタスク（必要に応じてコメントアウトまたは削除してください）
-  try {
-    const { cleanup } = await import("../scripts/cleanup_kv.ts");
-    await cleanup();
-  } catch (error) {
-    console.error("Failed to run cleanup task:", error);
-  }
+  // デプロイ時の1回限りのタスク（タイムアウト回避のためバックグラウンドで実行）
+  Deno.cron("One-time KV Cleanup", "*/1 * * * *", async () => {
+    try {
+      console.log("⏳ Starting background KV cleanup...");
+      const { cleanup } = await import("../scripts/cleanup_kv.ts");
+      await cleanup();
+      console.log("✨ Background KV cleanup complete!");
+    } catch (error) {
+      console.error("❌ Failed to run background cleanup task:", error);
+    }
+  });
 
   await serve(app.fetch, { port: 8000 });
 
