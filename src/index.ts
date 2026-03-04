@@ -39,20 +39,6 @@ if (import.meta.main) {
 
   console.log("Server starting on http://localhost:8000");
 
-  // デプロイ時の1回限りのタスク（タイムアウト回避のためバックグラウンドで実行）
-  // 注意: cron形式だが、実質的に一度実行されたら完了する設計。
-  // 今回の不審なギルドデータの削除もここから発火されます。
-  Deno.cron("One-time KV Cleanup Task", "*/1 * * * *", async () => {
-    try {
-      console.log("⏳ Starting background KV cleanup...");
-      const { cleanup } = await import("../scripts/cleanup_kv.ts");
-      await cleanup();
-      console.log("✨ Background KV cleanup complete!");
-    } catch (error) {
-      console.error("❌ Failed to run background cleanup task:", error);
-    }
-  });
-
   await serve(app.fetch, { port: 8000 });
 }
 
