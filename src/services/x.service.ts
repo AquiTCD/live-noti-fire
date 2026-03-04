@@ -23,7 +23,7 @@ export class XService {
       const response = await this.postTweet(text.trim());
       if (!response.ok) {
         const error = await response.text();
-        console.error(`Failed to post to X: ${error}`);
+        console.error(`Failed to post to X (final): ${error}`);
         return false;
       }
 
@@ -44,9 +44,51 @@ export class XService {
   }
 
   /**
-   * X API v2でツイートを投稿する (OAuth 1.0a)
+   * X API v2でツイートを投稿する (リトライ機能付き)
    */
   private static async postTweet(text: string): Promise<Response> {
+    const MAX_RETRIES = 3;
+    let lastResponse: Response | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          // 指数バックオフ: 2s, 4s, 8s
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`Retry attempt ${attempt}/${MAX_RETRIES} for X posting after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        lastResponse = await this.executePostTweet(text);
+
+        if (lastResponse.ok) {
+          return lastResponse;
+        }
+
+        // リトライ可能なエラー (5xx または 429) かチェック
+        const isRetryable = lastResponse.status >= 500 || lastResponse.status === 429;
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          return lastResponse;
+        }
+
+        const errorDetail = await lastResponse.clone().text();
+        console.warn(`Retryable error ${lastResponse.status} from X API: ${errorDetail}. Retrying...`);
+      } catch (error) {
+        if (attempt === MAX_RETRIES) {
+          console.error(`Post attempt ${attempt} failed with terminal error: ${error}`);
+          throw error;
+        }
+        console.warn(`Post attempt ${attempt} failed with error: ${error}. Retrying...`);
+      }
+    }
+
+    return lastResponse!;
+  }
+
+  /**
+   * X API v2でツイートを投稿する (OAuth 1.0a) - 内部実行用
+   */
+  private static async executePostTweet(text: string): Promise<Response> {
     const method = "POST";
     const url = this.X_API_URL;
     const body = { text };
