@@ -1,7 +1,7 @@
 import { getEnvVar } from "../types/env.ts";
 
 export class XService {
-  private static readonly X_API_URL = "https://api.x.com/2/tweets";
+  private static readonly X_API_URL = "https://api.twitter.com/2/tweets";
 
   /**
    * 配信開始をツイートする
@@ -22,8 +22,10 @@ export class XService {
 
       const response = await this.postTweet(text.trim());
       if (!response.ok) {
+        const status = response.status;
         const error = await response.text();
-        console.error(`Failed to post to X (final): ${error}`);
+        console.error(`Failed to post to X (final): HTTP ${status} - ${error}`);
+        this.logHeaders(response);
         return false;
       }
 
@@ -67,12 +69,16 @@ export class XService {
 
         // リトライ可能なエラー (5xx または 429) かチェック
         const isRetryable = lastResponse.status >= 500 || lastResponse.status === 429;
+
+        // ヘッダーを詳細ログ（特にレートリミット）
+        this.logHeaders(lastResponse);
+
         if (!isRetryable || attempt === MAX_RETRIES) {
           return lastResponse;
         }
 
         const errorDetail = await lastResponse.clone().text();
-        console.warn(`Retryable error ${lastResponse.status} from X API: ${errorDetail}. Retrying...`);
+        console.warn(`Retryable error ${lastResponse.status} from X API on attempt ${attempt}: ${errorDetail}. Retrying...`);
       } catch (error) {
         if (attempt === MAX_RETRIES) {
           console.error(`Post attempt ${attempt} failed with terminal error: ${error}`);
@@ -93,10 +99,10 @@ export class XService {
     const url = this.X_API_URL;
     const body = { text };
 
-    const consumerKey = getEnvVar("X_CONSUMER_KEY");
-    const consumerSecret = getEnvVar("X_CONSUMER_SECRET");
-    const accessToken = getEnvVar("X_ACCESS_TOKEN");
-    const accessSecret = getEnvVar("X_ACCESS_SECRET");
+    const consumerKey = getEnvVar("X_CONSUMER_KEY").trim();
+    const consumerSecret = getEnvVar("X_CONSUMER_SECRET").trim();
+    const accessToken = getEnvVar("X_ACCESS_TOKEN").trim();
+    const accessSecret = getEnvVar("X_ACCESS_SECRET").trim();
 
     const oauthParams: Record<string, string> = {
       oauth_consumer_key: consumerKey,
@@ -129,7 +135,6 @@ export class XService {
       headers: {
         "Authorization": authHeader,
         "Content-Type": "application/json",
-        "Accept": "application/json",
         "User-Agent": "live-noti-fire/1.0.0",
       },
       body: JSON.stringify(body),
@@ -170,6 +175,24 @@ export class XService {
   private static rfc3986Encode(str: string): string {
     return encodeURIComponent(str)
       .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  }
+
+  /**
+   * レスポンスヘッダー（特にレートリミット関連）をログ出力する
+   */
+  private static logHeaders(response: Response) {
+    const headers: Record<string, string> = {};
+    for (const [key, value] of response.headers.entries()) {
+      if (key.startsWith("x-rate-limit") || key === "retry-after" || key === "date") {
+        headers[key] = value;
+      }
+    }
+    if (Object.keys(headers).length > 0) {
+      console.log(`X API Response Headers: ${JSON.stringify(headers)}`);
+    } else {
+      // 503などの場合はレートリミットヘッダーがない可能性もあるので、全体を軽く見る
+      console.log(`X API Response Status: ${response.status} ${response.statusText}`);
+    }
   }
 
   private static async computeHmacSha1(message: string, key: string): Promise<string> {
