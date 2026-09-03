@@ -19,3 +19,13 @@ delete.sh
 # Docs
 docs/notes/
 docs/ai/
+
+# Scratch workspace
+.scratch/
+
+# pnpm
+.pnpm-store/
+node_modules/
+
+# wrangler
+.wrangler/
