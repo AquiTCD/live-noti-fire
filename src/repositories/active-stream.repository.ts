@@ -1,26 +1,16 @@
-/// <reference lib="deno.unstable" />
-
 // 配信中のストリームを管理するリポジトリ
 export class ActiveStreamRepository {
-  private static kv: Deno.Kv;
   private static readonly KEY_PREFIX = "active_streams";
-
-  static {
-    const initKv = async () => {
-      this.kv = await Deno.openKv();
-    };
-    initKv();
-  }
 
   /**
    * 配信中ストリームをセット
    */
-  static async setActive(broadcasterId: string, streamId: string): Promise<boolean> {
+  static async setActive(kv: KVNamespace, broadcasterId: string, streamId: string): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId];
+      const key = `${this.KEY_PREFIX}:${broadcasterId}`;
       // 配信IDを値として保存
-      const result = await this.kv.set(key, streamId);
-      return result.ok;
+      await kv.put(key, streamId);
+      return true;
     } catch (error) {
       console.error("Error setting active stream:", error);
       return false;
@@ -30,11 +20,11 @@ export class ActiveStreamRepository {
   /**
    * 配信中ストリームかどうか確認
    */
-  static async isActive(broadcasterId: string): Promise<boolean> {
+  static async isActive(kv: KVNamespace, broadcasterId: string): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId];
-      const result = await this.kv.get<string>(key);
-      return !!result.value;
+      const key = `${this.KEY_PREFIX}:${broadcasterId}`;
+      const value = await kv.get(key);
+      return !!value;
     } catch (error) {
       console.error("Error checking active stream:", error);
       return false;
@@ -44,10 +34,10 @@ export class ActiveStreamRepository {
   /**
    * 配信終了時にストリームを削除
    */
-  static async deleteActive(broadcasterId: string): Promise<boolean> {
+  static async deleteActive(kv: KVNamespace, broadcasterId: string): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId];
-      await this.kv.delete(key);
+      const key = `${this.KEY_PREFIX}:${broadcasterId}`;
+      await kv.delete(key);
       return true;
     } catch (error) {
       console.error("Error deleting active stream:", error);
