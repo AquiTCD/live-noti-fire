@@ -4,31 +4,24 @@ interface GuildStorage {
 }
 
 export class GuildRepository {
-  private static kv: Deno.Kv;
   private static readonly KEY_PREFIX = 'guild_id';
-
-  static {
-    const initKv = async () => {
-      this.kv = await Deno.openKv();
-    };
-    initKv();
-  }
 
   /**
    * 通知チャンネルを設定
    */
   static async setNotifyChannel(
+    kv: KVNamespace,
     guildId: string,
     channelId: string,
     rules?: string[]
   ): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, guildId];
+      const key = `${this.KEY_PREFIX}:${guildId}`;
       const value: GuildStorage = {
         channel_id: channelId,
         ...(rules && rules.length > 0 ? { rules } : {})
       };
-      await this.kv.set(key, value);
+      await kv.put(key, JSON.stringify(value));
       return true;
     } catch (error) {
       console.error('Error setting notify channel:', error);
@@ -39,11 +32,11 @@ export class GuildRepository {
   /**
    * 通知チャンネルを取得
    */
-  static async getNotifyChannel(guildId: string): Promise<string | null> {
+  static async getNotifyChannel(kv: KVNamespace, guildId: string): Promise<string | null> {
     try {
-      const key = [this.KEY_PREFIX, guildId];
-      const result = await this.kv.get<GuildStorage>(key);
-      return result.value?.channel_id ?? null;
+      const key = `${this.KEY_PREFIX}:${guildId}`;
+      const result = await kv.get<GuildStorage>(key, "json");
+      return result?.channel_id ?? null;
     } catch (error) {
       console.error('Error getting notify channel:', error);
       return null;
@@ -53,11 +46,10 @@ export class GuildRepository {
   /**
    * ギルドの通知設定を取得
    */
-  static async getGuildSettings(guildId: string): Promise<GuildStorage | null> {
+  static async getGuildSettings(kv: KVNamespace, guildId: string): Promise<GuildStorage | null> {
     try {
-      const key = [this.KEY_PREFIX, guildId];
-      const result = await this.kv.get<GuildStorage>(key);
-      return result.value ?? null;
+      const key = `${this.KEY_PREFIX}:${guildId}`;
+      return await kv.get<GuildStorage>(key, "json");
     } catch (error) {
       console.error('Error getting guild settings:', error);
       return null;
