@@ -1,0 +1,16 @@
+name = "live-noti-fire"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = []
+
+# Cloudflare KV binding. Replace `id` with the real namespace id created via
+# `wrangler kv namespace create KV` before the first real deploy.
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_REAL_KV_NAMESPACE_ID"
+
+# Non-secret configuration values. Secrets (DISCORD_BOT_TOKEN, TWITCH_CLIENT_SECRET,
+# X_* credentials, etc.) are NOT defined here — they are managed via
+# `wrangler secret put <NAME>` and injected at runtime as env bindings.
+[vars]
+X_POST_PREFIX = "【ライブ配信開始】"
