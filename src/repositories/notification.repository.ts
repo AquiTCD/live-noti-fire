@@ -6,35 +6,28 @@ interface NotificationMessage {
 }
 
 export class NotificationRepository {
-  private static kv: Deno.Kv;
   private static readonly KEY_PREFIX = 'notification';
-
-  static {
-    const initKv = async () => {
-      this.kv = await Deno.openKv();
-    };
-    initKv();
-  }
 
   /**
    * 配信通知メッセージを保存
    */
   static async saveNotification(
+    kv: KVNamespace,
     broadcasterId: string,
     guildId: string,
     messageId: string,
     channelId: string
   ): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId, guildId];
+      const key = `${this.KEY_PREFIX}:${broadcasterId}:${guildId}`;
       const value: NotificationMessage = {
         broadcaster_id: broadcasterId,
         guild_id: guildId,
         message_id: messageId,
         channel_id: channelId
       };
-      const result = await this.kv.set(key, value);
-      return result.ok;
+      await kv.put(key, JSON.stringify(value));
+      return true;
     } catch (error) {
       console.error('Error saving notification:', error);
       return false;
@@ -45,13 +38,13 @@ export class NotificationRepository {
    * 配信通知メッセージを取得
    */
   static async getNotification(
+    kv: KVNamespace,
     broadcasterId: string,
     guildId: string
   ): Promise<NotificationMessage | null> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId, guildId];
-      const result = await this.kv.get<NotificationMessage>(key);
-      return result.value;
+      const key = `${this.KEY_PREFIX}:${broadcasterId}:${guildId}`;
+      return await kv.get<NotificationMessage>(key, "json");
     } catch (error) {
       console.error('Error getting notification:', error);
       return null;
@@ -62,12 +55,13 @@ export class NotificationRepository {
    * 配信通知メッセージを削除
    */
   static async deleteNotification(
+    kv: KVNamespace,
     broadcasterId: string,
     guildId: string
   ): Promise<boolean> {
     try {
-      const key = [this.KEY_PREFIX, broadcasterId, guildId];
-      await this.kv.delete(key);
+      const key = `${this.KEY_PREFIX}:${broadcasterId}:${guildId}`;
+      await kv.delete(key);
       return true;
     } catch (error) {
       console.error('Error deleting notification:', error);
