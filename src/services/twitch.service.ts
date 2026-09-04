@@ -86,7 +86,7 @@ export class TwitchService {
   /**
    * HMAC-SHA256の計算
    */
-  private static async computeHmac(message: string, secret: string): Promise<string> {
+  static async computeHmac(message: string, secret: string): Promise<string> {
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secret);
     const messageData = encoder.encode(message);
