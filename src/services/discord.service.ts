@@ -90,8 +90,6 @@ function hexToUint8Array(hex: string): Uint8Array {
 export class DiscordService {
   private static readonly API_VERSION = "10";
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
-  private static readonly BOT_TOKEN = getEnvVar("DISCORD_BOT_TOKEN");
-  private static readonly PUBLIC_KEY = getEnvVar("DISCORD_PUBLIC_KEY");
 
   /**
    * Interactionリクエストの検証
@@ -99,14 +97,15 @@ export class DiscordService {
   static async verifyInteraction(
     signature: string,
     timestamp: string,
-    body: string
+    body: string,
+    publicKeyHex: string
   ): Promise<InteractionVerificationResult> {
     try {
       // ED25519による署名検証
       const encoder = new TextEncoder();
       const signatureUint8 = hexToUint8Array(signature);
       const timestampBody = encoder.encode(timestamp + body);
-      const publicKeyUint8 = hexToUint8Array(this.PUBLIC_KEY);
+      const publicKeyUint8 = hexToUint8Array(publicKeyHex);
 
       // 公開鍵をインポート
       const publicKey = await crypto.subtle.importKey(
@@ -187,10 +186,11 @@ export class DiscordService {
     options: RequestInit = {}
   ) {
     const url = `${this.API_BASE}${endpoint}`;
+    const botToken = getEnvVar("DISCORD_BOT_TOKEN");
     const response = await fetch(url, {
       ...options,
       headers: {
-        "Authorization": `Bot ${this.BOT_TOKEN}`,
+        "Authorization": `Bot ${botToken}`,
         "Content-Type": "application/json",
         ...options.headers,
       },

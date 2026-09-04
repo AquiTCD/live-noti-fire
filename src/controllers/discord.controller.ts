@@ -131,7 +131,8 @@ export class DiscordController {
       const verification = await DiscordService.verifyInteraction(
         signature,
         timestamp,
-        rawBody
+        rawBody,
+        getEnvVar("DISCORD_PUBLIC_KEY")
       );
 
       if (!verification.isValid) {
