@@ -144,7 +144,7 @@ export class XService {
   /**
    * OAuth 1.0a 署名の生成
    */
-  private static async generateSignature(
+  static async generateSignature(
     method: string,
     url: string,
     params: Record<string, string>,
