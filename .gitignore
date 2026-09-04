@@ -29,3 +29,4 @@ node_modules/
 
 # wrangler
 .wrangler/
+worker-configuration.d.ts

@@ -17,7 +17,7 @@ async function signHex(privateKey: CryptoKey, message: string): Promise<string> 
 }
 
 async function publicKeyHex(publicKey: CryptoKey): Promise<string> {
-  const raw = await crypto.subtle.exportKey("raw", publicKey);
+  const raw = (await crypto.subtle.exportKey("raw", publicKey)) as ArrayBuffer;
   return toHex(new Uint8Array(raw));
 }
 

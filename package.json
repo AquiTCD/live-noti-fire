@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "pretest": "wrangler types",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pretypecheck": "wrangler types",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
