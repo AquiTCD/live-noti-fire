@@ -1,19 +1,45 @@
 import { Hono } from "hono";
-import { serve } from "std/http/server.ts";
 import type { Context } from "hono";
-import { DiscordController } from "./controllers/discord.controller.ts";
-import { DebugController } from "./controllers/debug.controller.ts";
-import { TwitchController } from "./controllers/twitch.controller.ts";
-import { validateEnv } from "./types/env.ts";
+import { DiscordController } from "./controllers/discord.controller";
+import { DebugController } from "./controllers/debug.controller";
+import { TwitchController } from "./controllers/twitch.controller";
 
-const app = new Hono();
+const REQUIRED_ENV_VARS = [
+  "DISCORD_CLIENT_ID",
+  "DISCORD_CLIENT_SECRET",
+  "DISCORD_BOT_TOKEN",
+  "DISCORD_PUBLIC_KEY",
+  "TWITCH_CLIENT_ID",
+  "TWITCH_CLIENT_SECRET",
+  "TWITCH_SUBSCRIPTION_SECRET",
+  "X_CONSUMER_KEY",
+  "X_CONSUMER_SECRET",
+  "X_ACCESS_TOKEN",
+  "X_ACCESS_SECRET",
+  "X_TARGET_TWITCH_ID",
+] as const;
+
+const app = new Hono<{ Bindings: Env }>();
+
+// リクエスト受信時に必須の環境変数（secrets/vars）が揃っているか検証
+// (ヘルスチェックは監視ツールが叩くため、secrets未設定でも200を返せるよう対象外にする)
+const validateEnv = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
+  const missingEnvVars = REQUIRED_ENV_VARS.filter((key) => !c.env[key]);
+
+  if (missingEnvVars.length > 0) {
+    console.error("Missing required environment variables:", missingEnvVars);
+    return c.json({ error: "Server misconfiguration: missing environment variables" }, 500);
+  }
+
+  await next();
+};
 
 // Discord エンドポイント
-app.post("/discord/interactions", DiscordController.handleInteraction);
-app.post("/discord/command_register", DiscordController.handleCommandRegister);
+app.post("/discord/interactions", validateEnv, DiscordController.handleInteraction);
+app.post("/discord/command_register", validateEnv, DiscordController.handleCommandRegister);
 
 // Twitch エンドポイント
-app.post("/twitch/webhooks", TwitchController.handleWebhook);
+app.post("/twitch/webhooks", validateEnv, TwitchController.handleWebhook);
 
 // デバッグ用エンドポイント（セキュリティのため、必要な時だけコメントアウトを外してください）
 // app.get("/debug/kv", DebugController.showKvContents);
@@ -27,19 +53,5 @@ app.get("/health", (c: Context) => {
     uptime: Math.floor(performance.now() / 1000),
   });
 });
-
-if (import.meta.main) {
-  // 起動時に環境変数をバリデーション
-  const isValid = await validateEnv();
-  if (!isValid) {
-    console.error("Missing required environment variables. Server startup aborted.");
-    console.error("Please check .env.example for required variables.");
-    Deno.exit(1);
-  }
-
-  console.log("Server starting on http://localhost:8000");
-
-  await serve(app.fetch, { port: 8000 });
-}
 
 export default app;
