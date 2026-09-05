@@ -14,7 +14,9 @@ Twitchの配信開始/終了をDiscordで通知するBotです。
 
 ### Prerequisites
 
-- [Deno](https://deno.land/) 1.37 or later
+- [Node.js](https://nodejs.org/) 22 or later
+- [pnpm](https://pnpm.io/)
+- [Cloudflare アカウント](https://dash.cloudflare.com/sign-up)（Workers + KV を使用）
 - Discord Bot Application
 - Twitch Developer Application
 
@@ -42,28 +44,42 @@ Discord Developer Portalの「OAuth2 > URL Generator」で `bot` と `applicatio
 1. [Twitch Developer Console](https://dev.twitch.tv/console)でアプリケーションを作成
 2. Client IDとClient Secretを取得
 
+### Cloudflare KV の準備
+
+本番用のKV namespaceを作成し、発行された`id`を`wrangler.toml`の`kv_namespaces`セクションに設定してください。
+
+```bash
+pnpm exec wrangler kv namespace create KV
+```
+
 ### 環境変数の設定
+
+ローカル開発（`wrangler dev`）では`.env`ファイルから環境変数が読み込まれます。本番環境（デプロイ後のWorker）では`wrangler secret put`で設定した値がバインディング経由で渡されます。`.env`ファイルはGitリポジトリにコミットしないでください。
 
 1. .envファイルの作成
 ```bash
 cp .env.example .env
 ```
 
-2. .envファイルを編集
-```env
-# Discord
-DISCORD_CLIENT_ID="your-discord-client-id"
-DISCORD_CLIENT_SECRET="your-discord-bot-token"
+2. .envファイルを編集（必要な値は`.env.example`を参照）
 
-# Twitch
-TWITCH_CLIENT_ID="your-twitch-client-id"
-TWITCH_CLIENT_SECRET="your-twitch-client-secret"
+3. 本番用シークレットの設定（デプロイ前に一度だけ）
+```bash
+pnpm exec wrangler secret put DISCORD_CLIENT_ID
+pnpm exec wrangler secret put DISCORD_CLIENT_SECRET
+pnpm exec wrangler secret put DISCORD_BOT_TOKEN
+pnpm exec wrangler secret put DISCORD_PUBLIC_KEY
+pnpm exec wrangler secret put TWITCH_CLIENT_ID
+pnpm exec wrangler secret put TWITCH_CLIENT_SECRET
+pnpm exec wrangler secret put TWITCH_SUBSCRIPTION_SECRET
+pnpm exec wrangler secret put X_CONSUMER_KEY
+pnpm exec wrangler secret put X_CONSUMER_SECRET
+pnpm exec wrangler secret put X_ACCESS_TOKEN
+pnpm exec wrangler secret put X_ACCESS_SECRET
+pnpm exec wrangler secret put X_TARGET_TWITCH_ID
 ```
 
-注意：
-- ローカル開発時は.envファイルから環境変数が読み込まれます
-- 本番環境では`Deno.env`から環境変数を読み込みます
-- .envファイルはGitリポジトリにコミットしないでください
+`X_POST_PREFIX`・`DISCORD_ALLOWED_GUILD_IDS`のような非シークレットの設定値は`wrangler.toml`の`[vars]`セクションで管理します。
 
 ### Development
 
@@ -73,15 +89,35 @@ git clone https://github.com/YourUsername/live-noti-fire.git
 cd live-noti-fire
 ```
 
-2. 環境変数の設定
+2. 依存関係のインストール
+```bash
+pnpm install
+```
+
+3. 環境変数の設定
 ```bash
 cp .env.example .env
 # .envファイルを編集して必要な値を設定
 ```
 
-3. 開発サーバーの起動
+4. 開発サーバーの起動（[Cloudflare Workers](https://developers.cloudflare.com/workers/)をローカルでエミュレート）
 ```bash
-deno task dev
+pnpm exec wrangler dev
+```
+
+5. デプロイ
+```bash
+pnpm exec wrangler deploy
+```
+
+### Testing
+
+[Vitest](https://vitest.dev/) + [@cloudflare/vitest-pool-workers](https://developers.cloudflare.com/workers/testing/vitest-integration/) を使用し、実際のWorkersランタイム（Miniflare）上でテストを実行します。
+
+```bash
+pnpm test        # 一度だけ実行
+pnpm test:watch  # ウォッチモード
+pnpm typecheck   # 型チェック
 ```
 
 ## Available Commands
@@ -136,10 +172,19 @@ GET /health
 
 ### スラッシュコマンドの手動登録
 
-通常は不要ですが、必要な場合は以下のコマンドで手動登録が可能です：
+通常はBotのサーバー追加時に自動登録されますが、必要な場合は以下のコマンドで手動登録が可能です（ローカルの`.env`からDiscordの認証情報を読み込みます。デプロイ済みWorkerには影響しません）：
 
 ```bash
-deno task register-commands
+pnpm run register-commands
+```
+
+### KVクリーンアップ（不正利用ギルドの除去など）
+
+インシデント対応用のスクリプトです。デフォルトではローカルKV（`wrangler dev`用の永続化ストア）に対して実行され、`--remote`を付けると本番KVに対して実行されます。
+
+```bash
+pnpm run cleanup-kv            # ローカルKV
+pnpm run cleanup-kv -- --remote # 本番KV（要 wrangler login）
 ```
 
 ## Sequence Diagrams
