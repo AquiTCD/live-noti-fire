@@ -10,7 +10,8 @@
     "pretypecheck": "wrangler types",
     "typecheck": "tsc --noEmit",
     "register-commands": "node --experimental-strip-types scripts/register-commands.ts",
-    "cleanup-kv": "node --experimental-strip-types scripts/cleanup_kv.ts"
+    "cleanup-kv": "node --experimental-strip-types scripts/cleanup_kv.ts",
+    "sync-secrets": "bash scripts/sync-secrets.sh"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",
