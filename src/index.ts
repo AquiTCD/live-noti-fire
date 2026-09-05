@@ -50,7 +50,6 @@ app.post("/twitch/webhooks", validateEnv, TwitchController.handleWebhook);
 app.get("/health", (c: Context) => {
   return c.json({
     status: "ok",
-    uptime: Math.floor(performance.now() / 1000),
   });
 });
 
