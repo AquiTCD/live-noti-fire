@@ -1,9 +1,6 @@
 # Environment variables
 .env
 
-# Deno
-.deno/
-
 # Editor
 .vscode/
 .idea/
