@@ -64,4 +64,25 @@ describe("TwitchService.subscribeToStreamEvents", () => {
       expect(body.transport.callback).toBe(env.TWITCH_CALLBACK_URL);
     }
   });
+
+  it("treats a 409 'subscription already exists' response as success, not failure", async () => {
+    fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("oauth2/token")) {
+        return new Response(
+          JSON.stringify({ access_token: "tok", expires_in: 3600, token_type: "bearer" }),
+          { status: 200 }
+        );
+      }
+      // 別のDiscordサーバーが同じ配信者を先に登録済みだった場合、Twitchはこう返す
+      return new Response(
+        JSON.stringify({ error: "Conflict", status: 409, message: "subscription already exists; id=existing-id" }),
+        { status: 409 }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await TwitchService.subscribeToStreamEvents(env, "broadcaster-already-registered");
+
+    expect(result).toBe(true);
+  });
 });

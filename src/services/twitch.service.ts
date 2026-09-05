@@ -265,6 +265,15 @@ export class TwitchService {
         }),
       });
 
+      if (response.status === 409) {
+        // 別のDiscordサーバーが既に同じ配信者を登録済み。Twitch側のサブスクリプションは
+        // broadcaster+typeごとに1つしか存在できないが、通知処理は
+        // broadcaster_id -> [guildId, ...] のマッピングで複数ギルドにfan-outする設計なので、
+        // 既に存在すること自体は成功として扱ってよい。
+        console.log(`Subscription for ${type} already exists for broadcaster ${broadcasterId}, treating as success`);
+        return true;
+      }
+
       if (!response.ok) {
         const error = await response.text();
         throw new Error(`Failed to subscribe to ${type}: ${error}`);
