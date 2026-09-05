@@ -2,23 +2,8 @@ import type { Context } from "hono";
 import type { UserRegistration, ApiResponse } from "../types/user";
 import { userRepository } from "../repositories/user.repository";
 import { TwitchService } from "../services/twitch.service";
-import { DiscordService } from "../services/discord.service";
+import { DiscordService, type DiscordInteraction } from "../services/discord.service";
 import { GuildRepository } from "../repositories/guild.repository";
-
-interface DiscordInteraction {
-  id: string;
-  token: string;
-  type: number;
-  guild_id?: string;
-  data: {
-    name: string;
-    options?: Array<{
-      name: string;
-      type: number;
-      value: string;
-    }>;
-  };
-}
 
 type AppContext = Context<{ Bindings: Env }>;
 

@@ -102,7 +102,6 @@ export class TwitchController {
 
         // 以降は通知処理
         const broadcasterId = streamPayload.subscription.condition.broadcaster_user_id;
-        const broadcasterName = streamPayload.event.broadcaster_user_name;
         const streamUrl = `https://twitch.tv/${streamPayload.event.broadcaster_user_login}`;
 
         // ブロードキャスターに関連付けられたギルドを取得

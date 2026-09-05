@@ -4,7 +4,7 @@ interface DiscordInteractionOption {
   value: string;
 }
 
-interface DiscordInteraction {
+export interface DiscordInteraction {
   type: number;
   id: string;
   token: string;
