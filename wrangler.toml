@@ -16,3 +16,8 @@ X_POST_PREFIX = "【ライブ配信開始】"
 # are created pointing at this address, so it MUST match the real deployment URL
 # (workers.dev subdomain or custom domain) — update this after the first deploy.
 TWITCH_CALLBACK_URL = "https://live-noti-fire.aqui-tcd-dev.workers.dev/twitch/webhooks"
+[observability.logs]
+enabled = true
+invocation_logs = true
+[observability.traces]
+enabled = true
