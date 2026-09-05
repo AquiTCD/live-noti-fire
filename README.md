@@ -64,22 +64,23 @@ cp .env.example .env
 2. .envファイルを編集（必要な値は`.env.example`を参照）
 
 3. 本番用シークレットの設定（デプロイ前に一度だけ）
+
+`.env`の値をまとめて本番に反映するスクリプトを用意しています（`wrangler secret bulk`のラッパー）：
+
 ```bash
-pnpm exec wrangler secret put DISCORD_CLIENT_ID
-pnpm exec wrangler secret put DISCORD_CLIENT_SECRET
-pnpm exec wrangler secret put DISCORD_BOT_TOKEN
-pnpm exec wrangler secret put DISCORD_PUBLIC_KEY
-pnpm exec wrangler secret put TWITCH_CLIENT_ID
-pnpm exec wrangler secret put TWITCH_CLIENT_SECRET
-pnpm exec wrangler secret put TWITCH_SUBSCRIPTION_SECRET
-pnpm exec wrangler secret put X_CONSUMER_KEY
-pnpm exec wrangler secret put X_CONSUMER_SECRET
-pnpm exec wrangler secret put X_ACCESS_TOKEN
-pnpm exec wrangler secret put X_ACCESS_SECRET
-pnpm exec wrangler secret put X_TARGET_TWITCH_ID
+pnpm run sync-secrets
 ```
 
-`X_POST_PREFIX`・`DISCORD_ALLOWED_GUILD_IDS`のような非シークレットの設定値は`wrangler.toml`の`[vars]`セクションで管理します。
+1個ずつ設定したい場合は個別に`wrangler secret put <NAME>`も使えます：
+```bash
+pnpm exec wrangler secret put DISCORD_CLIENT_ID
+# ...(DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN, DISCORD_PUBLIC_KEY,
+#     TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_SUBSCRIPTION_SECRET,
+#     X_CONSUMER_KEY, X_CONSUMER_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET,
+#     X_TARGET_TWITCH_ID も同様に)
+```
+
+`X_POST_PREFIX`・`DISCORD_ALLOWED_GUILD_IDS`・`TWITCH_CALLBACK_URL`のような非シークレットの設定値は`wrangler.toml`の`[vars]`セクションで管理するため、`sync-secrets`の対象外です。
 
 ### Development
 
