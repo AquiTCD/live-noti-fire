@@ -38,7 +38,6 @@ export class TwitchService {
   private static readonly TWITCH_API_URL = "https://api.twitch.tv/helix";
   private static readonly TWITCH_AUTH_URL = "https://id.twitch.tv/oauth2/token";
   private static readonly EVENTSUB_URL = `${this.TWITCH_API_URL}/eventsub/subscriptions`;
-  private static readonly CALLBACK_URL = "https://live-noti-fire.deno.dev/twitch/webhooks";
 
   private static accessToken: string | null = null;
   private static tokenExpiry: number | null = null;
@@ -260,7 +259,7 @@ export class TwitchService {
           },
           transport: {
             method: "webhook",
-            callback: this.CALLBACK_URL,
+            callback: env.TWITCH_CALLBACK_URL,
             secret: secret,
           },
         }),

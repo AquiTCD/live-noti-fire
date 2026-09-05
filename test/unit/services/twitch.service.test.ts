@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TwitchService } from "../../../src/services/twitch.service";
 
 const SECRET = "twitchSubscriptionSecret789";
@@ -23,5 +23,45 @@ describe("TwitchService.computeHmac (Webhook signature, HMAC-SHA256)", () => {
     const baseline = await TwitchService.computeHmac(MESSAGE, SECRET);
     const wrongSecret = await TwitchService.computeHmac(MESSAGE, "wrong-secret");
     expect(wrongSecret).not.toBe(baseline);
+  });
+});
+
+describe("TwitchService.subscribeToStreamEvents", () => {
+  const env = {
+    TWITCH_CLIENT_ID: "client-id",
+    TWITCH_CLIENT_SECRET: "client-secret",
+    TWITCH_SUBSCRIPTION_SECRET: "sub-secret",
+    TWITCH_CALLBACK_URL: "https://my-worker.example.workers.dev/twitch/webhooks",
+  } as unknown as Env;
+
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("oauth2/token")) {
+        return new Response(
+          JSON.stringify({ access_token: "tok", expires_in: 3600, token_type: "bearer" }),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify({ data: { id: "sub1" } }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("registers the EventSub callback from env.TWITCH_CALLBACK_URL, not a hardcoded URL", async () => {
+    await TwitchService.subscribeToStreamEvents(env, "broadcaster1");
+
+    const eventsubCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes("eventsub/subscriptions"));
+    expect(eventsubCalls.length).toBeGreaterThan(0);
+
+    for (const [, options] of eventsubCalls) {
+      const body = JSON.parse((options as RequestInit).body as string);
+      expect(body.transport.callback).toBe(env.TWITCH_CALLBACK_URL);
+    }
   });
 });
