@@ -1,13 +1,12 @@
-import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
-import { userRepository } from "../repositories/user.repository.ts";
-import { GuildRepository } from "../repositories/guild.repository.ts";
-import { DiscordService, DiscordEmbed } from "../services/discord.service.ts";
-import { NotificationRepository } from "../repositories/notification.repository.ts";
-import { TwitchService } from "../services/twitch.service.ts";
-import { ActiveStreamRepository } from "../repositories/active-stream.repository.ts";
-import { XService } from "../services/x.service.ts";
-import { XPostHistoryRepository } from "../repositories/x-post-history.repository.ts";
-import { getEnvVar } from "../types/env.ts";
+import type { Context } from "hono";
+import { userRepository } from "../repositories/user.repository";
+import { GuildRepository } from "../repositories/guild.repository";
+import { DiscordService, DiscordEmbed } from "../services/discord.service";
+import { NotificationRepository } from "../repositories/notification.repository";
+import { TwitchService } from "../services/twitch.service";
+import { ActiveStreamRepository } from "../repositories/active-stream.repository";
+import { XService } from "../services/x.service";
+import { XPostHistoryRepository } from "../repositories/x-post-history.repository";
 
 interface StreamEvent {
   subscription: {
@@ -33,11 +32,15 @@ interface StreamEvent {
   };
 }
 
+type AppContext = Context<{ Bindings: Env }>;
+
 export class TwitchController {
   /**
    * Webhookエンドポイントの処理
    */
-  static async handleWebhook(c: Context) {
+  static async handleWebhook(c: AppContext) {
+    const env = c.env;
+    const kv = env.KV;
     try {
       // Twitchからのリクエストヘッダーを取得
       const messageId = c.req.header("Twitch-Eventsub-Message-Id");
@@ -79,6 +82,7 @@ export class TwitchController {
 
         // リクエストの署名を検証
         const isValid = await TwitchService.verifyWebhookRequest(
+          env,
           messageId,
           timestamp,
           signature,
@@ -102,7 +106,7 @@ export class TwitchController {
         const streamUrl = `https://twitch.tv/${streamPayload.event.broadcaster_user_login}`;
 
         // ブロードキャスターに関連付けられたギルドを取得
-        const guildIds = await userRepository.getGuildsByTwitchId(broadcasterId);
+        const guildIds = await userRepository.getGuildsByTwitchId(kv, broadcasterId);
         if (!guildIds || guildIds.length === 0) {
           console.log(`No guilds found for broadcaster ${broadcasterId}`);
           return c.json({ message: "No guilds found" }, 200);
@@ -110,30 +114,30 @@ export class TwitchController {
 
         if (streamPayload.subscription.type === "stream.online") {
           // ストリーム情報を取得
-          const streamInfo = await TwitchService.getStreamInfo(broadcasterId);
+          const streamInfo = await TwitchService.getStreamInfo(env, broadcasterId);
           if (!streamInfo) {
             console.log(`No stream info found for broadcaster ${broadcasterId}`);
             return c.json({ message: "No stream info found" }, 200);
           }
 
           // すでに配信中なら通知しない
-          const isActive = await ActiveStreamRepository.isActive(broadcasterId);
+          const isActive = await ActiveStreamRepository.isActive(kv, broadcasterId);
           if (isActive) {
             console.log(`Already notified for stream ${streamInfo.id}`);
             return c.json({ message: "Already notified" }, 200);
           }
           // 配信中として記録
-          await ActiveStreamRepository.setActive(broadcasterId, streamInfo.id);
+          await ActiveStreamRepository.setActive(kv, broadcasterId, streamInfo.id);
 
           // Xへのポスト（ターゲットユーザーのみ）
-          if (broadcasterId === getEnvVar("X_TARGET_TWITCH_ID")) {
-            const isXPosted = await XPostHistoryRepository.isPosted(streamInfo.id);
+          if (broadcasterId === env.X_TARGET_TWITCH_ID) {
+            const isXPosted = await XPostHistoryRepository.isPosted(kv, streamInfo.id);
             if (!isXPosted) {
               // 非同期で実行（Discord通知を優先）
               (async () => {
-                const success = await XService.postStreamTweet(streamInfo.title, streamUrl, streamInfo.game_name);
+                const success = await XService.postStreamTweet(env, streamInfo.title, streamUrl, streamInfo.game_name);
                 if (success) {
-                  await XPostHistoryRepository.setPosted(streamInfo.id);
+                  await XPostHistoryRepository.setPosted(kv, streamInfo.id);
                 }
               })();
             } else {
@@ -145,19 +149,20 @@ export class TwitchController {
           const notificationPromises = guildIds.map(async (guildId) => {
             try {
               // ギルドの通知設定を取得
-              const guildSettings = await GuildRepository.getGuildSettings(guildId);
+              const guildSettings = await GuildRepository.getGuildSettings(kv, guildId);
               if (!guildSettings || !guildSettings.channel_id) {
                 console.log(`No notification settings found for guild ${guildId}`);
                 return;
               }
 
               // 捜査用ログ：誰のどのチャンネルに送ろうとしているか
-              await DiscordService.logInvestigativeInfo(guildId, guildSettings.channel_id);
+              await DiscordService.logInvestigativeInfo(env, guildId, guildSettings.channel_id);
 
               // ギルドが許可されているかチェック
-              if (!DiscordService.isAllowedGuild(guildId)) {
+              if (!DiscordService.isAllowedGuild(env, guildId)) {
                 console.warn(`Unauthorized notification attempted for guild ${guildId}`);
                 await DiscordService.sendMessage(
+                  env,
                   guildSettings.channel_id,
                   "不正利用を検知しました。ご自身でデプロイして運用してください。\nおめえに使わせるBotはねぇ！！"
                 );
@@ -203,7 +208,7 @@ export class TwitchController {
               };
 
               // TwitchユーザーIDに紐づくDiscordユーザー情報を取得
-              const user = await userRepository.getByTwitchId(broadcasterId);
+              const user = await userRepository.getByTwitchId(kv, broadcasterId);
               if (!user) {
                 console.log(`No Discord user found for Twitch user ${broadcasterId}`);
                 return;
@@ -211,6 +216,7 @@ export class TwitchController {
 
               // Discord通知を送信（メンション付き）
               const messageId = await DiscordService.sendEmbedMessage(
+                env,
                 guildSettings.channel_id,
                 `🔴 <@${user.discordUserId}> が配信を開始しました！`,
                 embed
@@ -218,6 +224,7 @@ export class TwitchController {
 
               // 通知メッセージの情報を保存
               await NotificationRepository.saveNotification(
+                kv,
                 broadcasterId,
                 guildId,
                 messageId,
@@ -234,13 +241,13 @@ export class TwitchController {
           await Promise.all(notificationPromises);
         } else if (streamPayload.subscription.type === "stream.offline") {
           // 配信中フラグを無条件で削除（offlineイベント時はstreamInfoがnullになるため）
-          await ActiveStreamRepository.deleteActive(broadcasterId);
+          await ActiveStreamRepository.deleteActive(kv, broadcasterId);
 
           // 各ギルドの通知メッセージにリアクションを追加
           const reactionPromises = guildIds.map(async (guildId) => {
             try {
               // 保存された通知メッセージの情報を取得
-              const notification = await NotificationRepository.getNotification(broadcasterId, guildId);
+              const notification = await NotificationRepository.getNotification(kv, broadcasterId, guildId);
               if (!notification) {
                 console.log(`No notification found for broadcaster ${broadcasterId} in guild ${guildId}`);
                 return;
@@ -248,13 +255,14 @@ export class TwitchController {
 
               // メッセージに配信終了のリアクションを追加
               await DiscordService.addReaction(
+                env,
                 notification.channel_id,
                 notification.message_id,
                 "🚫"
               );
 
               // 通知メッセージの情報を削除
-              await NotificationRepository.deleteNotification(broadcasterId, guildId);
+              await NotificationRepository.deleteNotification(kv, broadcasterId, guildId);
 
               console.log(`Added offline reaction to notification in guild ${guildId}`);
             } catch (error) {

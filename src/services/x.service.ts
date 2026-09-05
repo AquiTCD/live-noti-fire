@@ -1,14 +1,12 @@
-import { getEnvVar } from "../types/env.ts";
-
 export class XService {
   private static readonly X_API_URL = "https://api.twitter.com/2/tweets";
 
   /**
    * 配信開始をツイートする
    */
-  static async postStreamTweet(title: string, url: string, gameName?: string): Promise<boolean> {
+  static async postStreamTweet(env: Env, title: string, url: string, gameName?: string): Promise<boolean> {
     try {
-      const prefix = this.getPrefix();
+      const prefix = this.getPrefix(env);
 
       let text = `${prefix}\n${title}`;
       if (gameName && gameName !== "未設定") {
@@ -20,7 +18,7 @@ export class XService {
 
       console.log(`Posting to X:\n${text}`);
 
-      const response = await this.postTweet(text.trim());
+      const response = await this.postTweet(env, text.trim());
       if (!response.ok) {
         const status = response.status;
         const error = await response.text();
@@ -37,18 +35,14 @@ export class XService {
     }
   }
 
-  private static getPrefix(): string {
-    try {
-      return Deno.env.get("X_POST_PREFIX") || "【ライブ配信開始】";
-    } catch {
-      return "【ライブ配信開始】";
-    }
+  private static getPrefix(env: Env): string {
+    return env.X_POST_PREFIX || "【ライブ配信開始】";
   }
 
   /**
    * X API v2でツイートを投稿する (リトライ機能付き)
    */
-  private static async postTweet(text: string): Promise<Response> {
+  private static async postTweet(env: Env, text: string): Promise<Response> {
     const MAX_RETRIES = 3;
     let lastResponse: Response | null = null;
 
@@ -61,7 +55,7 @@ export class XService {
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        lastResponse = await this.executePostTweet(text);
+        lastResponse = await this.executePostTweet(env, text);
 
         if (lastResponse.ok) {
           return lastResponse;
@@ -94,15 +88,15 @@ export class XService {
   /**
    * X API v2でツイートを投稿する (OAuth 1.0a) - 内部実行用
    */
-  private static async executePostTweet(text: string): Promise<Response> {
+  private static async executePostTweet(env: Env, text: string): Promise<Response> {
     const method = "POST";
     const url = this.X_API_URL;
     const body = { text };
 
-    const consumerKey = getEnvVar("X_CONSUMER_KEY").trim();
-    const consumerSecret = getEnvVar("X_CONSUMER_SECRET").trim();
-    const accessToken = getEnvVar("X_ACCESS_TOKEN").trim();
-    const accessSecret = getEnvVar("X_ACCESS_SECRET").trim();
+    const consumerKey = env.X_CONSUMER_KEY.trim();
+    const consumerSecret = env.X_CONSUMER_SECRET.trim();
+    const accessToken = env.X_ACCESS_TOKEN.trim();
+    const accessSecret = env.X_ACCESS_SECRET.trim();
 
     const oauthParams: Record<string, string> = {
       oauth_consumer_key: consumerKey,

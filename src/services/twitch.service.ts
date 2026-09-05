@@ -1,5 +1,3 @@
-import { getEnvVar } from "../types/env.ts";
-
 interface TwitchStreamInfo {
   id: string;
   user_id: string;
@@ -49,6 +47,7 @@ export class TwitchService {
    * Webhookリクエストの署名を検証
    */
   static async verifyWebhookRequest(
+    env: Env,
     messageId: string,
     timestamp: string,
     signature: string,
@@ -65,7 +64,7 @@ export class TwitchService {
       const message = messageId + timestamp + body;
       console.log("Message to sign:", message);
 
-      const secret = getEnvVar("TWITCH_SUBSCRIPTION_SECRET");
+      const secret = env.TWITCH_SUBSCRIPTION_SECRET;
       const computedSignature = `sha256=${
         await this.computeHmac(message, secret)
       }`;
@@ -113,14 +112,14 @@ export class TwitchService {
   /**
    * TwitchのユーザーIDを取得
    */
-  static async getBroadcasterId(username: string): Promise<string | null> {
+  static async getBroadcasterId(env: Env, username: string): Promise<string | null> {
     try {
-      const token = await this.getAccessToken();
+      const token = await this.getAccessToken(env);
       const response = await fetch(
         `${this.TWITCH_API_URL}/users?login=${username}`,
         {
           headers: {
-            "Client-ID": getEnvVar("TWITCH_CLIENT_ID"),
+            "Client-ID": env.TWITCH_CLIENT_ID,
             "Authorization": `Bearer ${token}`,
           },
         }
@@ -146,14 +145,14 @@ export class TwitchService {
   /**
    * ストリーム情報を取得
    */
-  static async getStreamInfo(broadcasterId: string): Promise<TwitchStreamInfo | null> {
+  static async getStreamInfo(env: Env, broadcasterId: string): Promise<TwitchStreamInfo | null> {
     try {
-      const token = await this.getAccessToken();
+      const token = await this.getAccessToken(env);
       const response = await fetch(
         `${this.TWITCH_API_URL}/streams?user_id=${broadcasterId}`,
         {
           headers: {
-            "Client-ID": getEnvVar("TWITCH_CLIENT_ID"),
+            "Client-ID": env.TWITCH_CLIENT_ID,
             "Authorization": `Bearer ${token}`,
           },
         }
@@ -186,7 +185,7 @@ export class TwitchService {
     }
   }
 
-  private static async getAccessToken(): Promise<string> {
+  private static async getAccessToken(env: Env): Promise<string> {
     // 既存のトークンが有効な場合は再利用
     if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
       return this.accessToken;
@@ -194,8 +193,8 @@ export class TwitchService {
 
     try {
       const params = new URLSearchParams({
-        client_id: getEnvVar("TWITCH_CLIENT_ID"),
-        client_secret: getEnvVar("TWITCH_CLIENT_SECRET"),
+        client_id: env.TWITCH_CLIENT_ID,
+        client_secret: env.TWITCH_CLIENT_SECRET,
         grant_type: "client_credentials",
       });
 
@@ -224,10 +223,10 @@ export class TwitchService {
   /**
    * Twitchのストリーム開始/終了イベントをサブスクライブ
    */
-  static async subscribeToStreamEvents(broadcasterId: string): Promise<boolean> {
+  static async subscribeToStreamEvents(env: Env, broadcasterId: string): Promise<boolean> {
     const events = ["stream.online", "stream.offline"];
     const results = await Promise.all(
-      events.map(type => this.createEventSubscription(broadcasterId, type))
+      events.map(type => this.createEventSubscription(env, broadcasterId, type))
     );
 
     return results.every(result => result);
@@ -237,18 +236,19 @@ export class TwitchService {
    * 特定のイベントタイプのサブスクリプションを作成
    */
   private static async createEventSubscription(
+    env: Env,
     broadcasterId: string,
     type: string
   ): Promise<boolean> {
     try {
       console.log(`Creating subscription for broadcaster ${broadcasterId} with type ${type}`);
-      const token = await this.getAccessToken();
-      const secret = getEnvVar("TWITCH_SUBSCRIPTION_SECRET");
+      const token = await this.getAccessToken(env);
+      const secret = env.TWITCH_SUBSCRIPTION_SECRET;
 
       const response = await fetch(this.EVENTSUB_URL, {
         method: "POST",
         headers: {
-          "Client-ID": getEnvVar("TWITCH_CLIENT_ID"),
+          "Client-ID": env.TWITCH_CLIENT_ID,
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
