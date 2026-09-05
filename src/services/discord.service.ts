@@ -90,6 +90,24 @@ export class DiscordService {
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
 
   /**
+   * グローバルスラッシュコマンドを登録
+   */
+  static async registerGlobalCommands(env: Env, commands: unknown[]): Promise<boolean> {
+    try {
+      await this.fetchDiscordApi(env, `/applications/${env.DISCORD_CLIENT_ID}/commands`, {
+        method: "PUT",
+        body: JSON.stringify(commands),
+      });
+
+      console.log("Successfully registered global commands");
+      return true;
+    } catch (error) {
+      console.error("Error registering global commands:", error);
+      return false;
+    }
+  }
+
+  /**
    * Interactionリクエストの検証
    */
   static async verifyInteraction(
