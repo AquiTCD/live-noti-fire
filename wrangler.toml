@@ -3,11 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2026-08-22"
 compatibility_flags = []
 
-# Cloudflare KV binding. Replace `id` with the real namespace id created via
-# `wrangler kv namespace create KV` before the first real deploy.
 [[kv_namespaces]]
 binding = "KV"
-id = "REPLACE_WITH_REAL_KV_NAMESPACE_ID"
+id = "26f2d0f517e04e2cb86dc1d20ab21411"
 
 # Non-secret configuration values. Secrets (DISCORD_BOT_TOKEN, TWITCH_CLIENT_SECRET,
 # X_* credentials, etc.) are NOT defined here — they are managed via
