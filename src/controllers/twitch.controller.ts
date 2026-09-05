@@ -1,12 +1,13 @@
 import type { Context } from "hono";
 import { userRepository } from "../repositories/user.repository";
 import { GuildRepository } from "../repositories/guild.repository";
-import { DiscordService, DiscordEmbed } from "../services/discord.service";
+import { DiscordService } from "../services/discord.service";
 import { NotificationRepository } from "../repositories/notification.repository";
 import { TwitchService } from "../services/twitch.service";
 import { ActiveStreamRepository } from "../repositories/active-stream.repository";
 import { XService } from "../services/x.service";
 import { XPostHistoryRepository } from "../repositories/x-post-history.repository";
+import { buildStreamEmbed, matchesNotificationRules } from "../utils/stream-notification";
 
 interface StreamEvent {
   subscription: {
@@ -169,42 +170,13 @@ export class TwitchController {
               }
 
               // ルールに基づいて通知を送信するか判断
-              if (guildSettings.rules && guildSettings.rules.length > 0) {
-                const matchesRule = guildSettings.rules.some(rule =>
-                  streamInfo.title.toLowerCase().includes(rule.toLowerCase())
-                );
-                if (!matchesRule) {
-                  console.log(`Stream title does not match rules for guild ${guildId}`);
-                  return;
-                }
+              if (!matchesNotificationRules(streamInfo.title, guildSettings.rules)) {
+                console.log(`Stream title does not match rules for guild ${guildId}`);
+                return;
               }
 
               // embedメッセージを作成
-              const embed: DiscordEmbed = {
-                author: {
-                  name: streamInfo.user_name
-                },
-                title: streamInfo.title,
-                url: streamUrl,
-                color: 0x6441A4, // Twitchのブランドカラー
-                fields: [
-                  {
-                    name: "GAME",
-                    value: streamInfo.game_name || "未設定",
-                    inline: true
-                  },
-                  {
-                    name: "TAG",
-                    value: streamInfo.tags?.length > 0
-                      ? streamInfo.tags.join(", ")
-                      : "-",
-                    inline: true
-                  }
-                ],
-                image: {
-                  url: streamInfo.thumbnail_url
-                }
-              };
+              const embed = buildStreamEmbed(streamInfo, streamUrl);
 
               // TwitchユーザーIDに紐づくDiscordユーザー情報を取得
               const user = await userRepository.getByTwitchId(kv, broadcasterId);
