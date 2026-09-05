@@ -1,13 +1,15 @@
-import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
-import { userRepository } from "../repositories/user.repository.ts";
+import type { Context } from "hono";
+import { userRepository } from "../repositories/user.repository";
+
+type AppContext = Context<{ Bindings: Env }>;
 
 export class DebugController {
   /**
    * KVストアの内容を表示するエンドポイント
    */
-  static async showKvContents(c: Context) {
+  static async showKvContents(c: AppContext) {
     try {
-      const data = await userRepository.getAllEntries();
+      const data = await userRepository.getAllEntries(c.env.KV);
 
       return c.json({
         message: "Current KV store contents",
@@ -36,9 +38,9 @@ export class DebugController {
   /**
    * KVストアの内容を全て削除するエンドポイント
    */
-  static async clearKvContents(c: Context) {
+  static async clearKvContents(c: AppContext) {
     try {
-      const result = await userRepository.clearAllEntries();
+      const result = await userRepository.clearAllEntries(c.env.KV);
 
       if (!result) {
         return c.json({
@@ -63,20 +65,20 @@ export class DebugController {
   /**
    * KVストアの指定されたキーのエントリーを削除するエンドポイント
    */
-  static async deleteKvEntry(c: Context) {
+  static async deleteKvEntry(c: AppContext) {
     try {
       const { key } = await c.req.json();
 
-      if (!Array.isArray(key) || key.length === 0) {
+      if (typeof key !== "string" || key.length === 0) {
         return c.json({
-          error: "Invalid request body: key must be a non-empty array",
+          error: "Invalid request body: key must be a non-empty string",
           example: {
-            key: ["prefix", "value"]
+            key: "users:discordUserId"
           }
         }, 400);
       }
 
-      const result = await userRepository.deleteByKey(key);
+      const result = await userRepository.deleteByKey(c.env.KV, key);
 
       if (!result) {
         return c.json({

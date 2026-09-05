@@ -1,14 +1,30 @@
-/// <reference lib="deno.unstable" />
-import type { UserRegistration } from "../types/user.ts";
+import type { UserRegistration } from "../types/user";
 
-// KVインスタンスの初期化
-const kv = await Deno.openKv();
+const USERS_PREFIX = "users";
+const TWITCH_TO_DISCORD_PREFIX = "twitch_to_discord";
+const BROADCASTER_ID_PREFIX = "broadcaster_id";
+const GUILD_ID_PREFIX = "guild_id";
+
+async function listAll(kv: KVNamespace, prefix: string): Promise<{ name: string; value: string }[]> {
+  const entries: { name: string; value: string }[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await kv.list({ prefix, cursor });
+    for (const key of page.keys) {
+      const value = await kv.get(key.name);
+      if (value !== null) entries.push({ name: key.name, value });
+    }
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return entries;
+}
 
 export const userRepository = {
   /**
    * ユーザー登録情報を保存
    */
-  async register(twitchUserId: string, discordUserId: string, guildId: string): Promise<boolean> {
+  async register(kv: KVNamespace, twitchUserId: string, discordUserId: string, guildId: string): Promise<boolean> {
     try {
       // ユーザー情報の登録
       const userRegistration: UserRegistration = {
@@ -17,25 +33,24 @@ export const userRepository = {
         registeredAt: new Date().toISOString(),
         isSubscribed: false,
       };
-      const userResult = await kv.set(["users", discordUserId], userRegistration);
+      await kv.put(`${USERS_PREFIX}:${discordUserId}`, JSON.stringify(userRegistration));
 
       // Twitch-Discord マッピングの登録
-      const mappingResult = await kv.set(["twitch_to_discord", twitchUserId], discordUserId);
+      await kv.put(`${TWITCH_TO_DISCORD_PREFIX}:${twitchUserId}`, discordUserId);
 
       // 既存のギルドリストを取得
-      const existingEntry = await kv.get<string[]>(["broadcaster_id", twitchUserId]);
-      const existingGuilds = existingEntry.value || [];
+      const existingGuilds = (await kv.get<string[]>(`${BROADCASTER_ID_PREFIX}:${twitchUserId}`, "json")) ?? [];
 
       // 既に登録されているか確認
       if (existingGuilds.includes(guildId)) {
-        return userResult.ok && mappingResult.ok;
+        return true;
       }
 
       // 新しいギルドIDを追加
       const updatedGuilds = [...existingGuilds, guildId];
-      const guildResult = await kv.set(["broadcaster_id", twitchUserId], updatedGuilds);
+      await kv.put(`${BROADCASTER_ID_PREFIX}:${twitchUserId}`, JSON.stringify(updatedGuilds));
 
-      return userResult.ok && mappingResult.ok && guildResult.ok;
+      return true;
     } catch (error) {
       console.error("Error in register:", error);
       return false;
@@ -45,45 +60,44 @@ export const userRepository = {
   /**
    * Twitchユーザーに関連付けられたギルドIDリストを取得
    */
-  async getGuildsByTwitchId(twitchUserId: string): Promise<string[]> {
-    const result = await kv.get<string[]>(["broadcaster_id", twitchUserId]);
-    return result.value || [];
+  async getGuildsByTwitchId(kv: KVNamespace, twitchUserId: string): Promise<string[]> {
+    const value = await kv.get<string[]>(`${BROADCASTER_ID_PREFIX}:${twitchUserId}`, "json");
+    return value ?? [];
   },
 
   /**
    * Discord User IDによるユーザー情報の取得
    */
-  async getByDiscordId(discordUserId: string): Promise<UserRegistration | null> {
-    const result = await kv.get<UserRegistration>(["users", discordUserId]);
-    return result.value;
+  async getByDiscordId(kv: KVNamespace, discordUserId: string): Promise<UserRegistration | null> {
+    return await kv.get<UserRegistration>(`${USERS_PREFIX}:${discordUserId}`, "json");
   },
 
   /**
    * Twitch User IDによるユーザー情報の取得
    */
-  async getByTwitchId(twitchUserId: string): Promise<UserRegistration | null> {
-    const discordId = await kv.get<string>(["twitch_to_discord", twitchUserId]);
-    if (!discordId.value) return null;
+  async getByTwitchId(kv: KVNamespace, twitchUserId: string): Promise<UserRegistration | null> {
+    const discordId = await kv.get(`${TWITCH_TO_DISCORD_PREFIX}:${twitchUserId}`);
+    if (!discordId) return null;
 
-    return this.getByDiscordId(discordId.value);
+    return this.getByDiscordId(kv, discordId);
   },
 
   /**
    * サブスクリプション状態の更新
    */
-  async updateSubscriptionStatus(discordUserId: string, isSubscribed: boolean): Promise<boolean> {
-    const user = await this.getByDiscordId(discordUserId);
+  async updateSubscriptionStatus(kv: KVNamespace, discordUserId: string, isSubscribed: boolean): Promise<boolean> {
+    const user = await this.getByDiscordId(kv, discordUserId);
     if (!user) return false;
 
     user.isSubscribed = isSubscribed;
-    const result = await kv.set(["users", discordUserId], user);
-    return result.ok;
+    await kv.put(`${USERS_PREFIX}:${discordUserId}`, JSON.stringify(user));
+    return true;
   },
 
   /**
    * すべてのKVエントリーを取得（デバッグ用）
    */
-  async getAllEntries(): Promise<{
+  async getAllEntries(kv: KVNamespace): Promise<{
     users: UserRegistration[];
     mappings: Record<string, string>;
     guilds: Record<string, string[]>;
@@ -94,31 +108,23 @@ export const userRepository = {
     const guilds: Record<string, string[]> = {};
     const guildSettings: Record<string, unknown> = {};
 
-    // ユーザー情報の取得
-    const userEntries = kv.list<UserRegistration>({ prefix: ["users"] });
-    for await (const entry of userEntries) {
-      users.push(entry.value);
+    for (const entry of await listAll(kv, `${USERS_PREFIX}:`)) {
+      users.push(JSON.parse(entry.value) as UserRegistration);
     }
 
-    // Twitch-Discordマッピングの取得
-    const mappingEntries = kv.list<string>({ prefix: ["twitch_to_discord"] });
-    for await (const entry of mappingEntries) {
-      const twitchId = entry.key[1] as string;
+    for (const entry of await listAll(kv, `${TWITCH_TO_DISCORD_PREFIX}:`)) {
+      const twitchId = entry.name.slice(`${TWITCH_TO_DISCORD_PREFIX}:`.length);
       mappings[twitchId] = entry.value;
     }
 
-    // Twitchユーザーとギルドのマッピングを取得
-    const guildEntries = kv.list<string[]>({ prefix: ["broadcaster_id"] });
-    for await (const entry of guildEntries) {
-      const twitchId = entry.key[1] as string;
-      guilds[twitchId] = entry.value;
+    for (const entry of await listAll(kv, `${BROADCASTER_ID_PREFIX}:`)) {
+      const twitchId = entry.name.slice(`${BROADCASTER_ID_PREFIX}:`.length);
+      guilds[twitchId] = JSON.parse(entry.value) as string[];
     }
 
-    // ギルド設定の取得
-    const guildSettingsEntries = kv.list({ prefix: ["guild_id"] });
-    for await (const entry of guildSettingsEntries) {
-      const guildId = entry.key[1] as string;
-      guildSettings[guildId] = entry.value;
+    for (const entry of await listAll(kv, `${GUILD_ID_PREFIX}:`)) {
+      const guildId = entry.name.slice(`${GUILD_ID_PREFIX}:`.length);
+      guildSettings[guildId] = JSON.parse(entry.value);
     }
 
     return { users, mappings, guilds, guildSettings };
@@ -126,37 +132,22 @@ export const userRepository = {
 
   /**
    * すべてのKVエントリーを削除（デバッグ用）
+   *
+   * Cloudflare KVには複数キーのatomicトランザクションが存在しないため、
+   * 逐次deleteで代替する（デバッグ専用機能のため許容）。
    */
-  async clearAllEntries(): Promise<boolean> {
+  async clearAllEntries(kv: KVNamespace): Promise<boolean> {
     try {
-      const { users, mappings, guilds, guildSettings } = await this.getAllEntries();
+      const { users, mappings, guilds, guildSettings } = await this.getAllEntries(kv);
 
-      // Atomicトランザクションを作成
-      let atomic = kv.atomic();
+      await Promise.all([
+        ...users.map((user) => kv.delete(`${USERS_PREFIX}:${user.discordUserId}`)),
+        ...Object.keys(mappings).map((twitchId) => kv.delete(`${TWITCH_TO_DISCORD_PREFIX}:${twitchId}`)),
+        ...Object.keys(guilds).map((twitchId) => kv.delete(`${BROADCASTER_ID_PREFIX}:${twitchId}`)),
+        ...Object.keys(guildSettings).map((guildId) => kv.delete(`${GUILD_ID_PREFIX}:${guildId}`)),
+      ]);
 
-      // ユーザー情報の削除
-      for (const user of users) {
-        atomic = atomic.delete(["users", user.discordUserId]);
-      }
-
-      // マッピング情報の削除
-      for (const twitchId of Object.keys(mappings)) {
-        atomic = atomic.delete(["twitch_to_discord", twitchId]);
-      }
-
-      // Twitchユーザーとギルドのマッピング情報の削除
-      for (const twitchId of Object.keys(guilds)) {
-        atomic = atomic.delete(["broadcaster_id", twitchId]);
-      }
-
-      // ギルド設定の削除
-      for (const guildId of Object.keys(guildSettings)) {
-        atomic = atomic.delete(["guild_id", guildId]);
-      }
-
-      // トランザクションの実行
-      const result = await atomic.commit();
-      return result.ok;
+      return true;
     } catch (error) {
       console.error("Error in clearAllEntries:", error);
       return false;
@@ -166,10 +157,10 @@ export const userRepository = {
   /**
    * 指定されたキーのエントリーを削除（デバッグ用）
    */
-  async deleteByKey(key: string[]): Promise<boolean> {
+  async deleteByKey(kv: KVNamespace, key: string): Promise<boolean> {
     try {
-      if (!Array.isArray(key) || key.length === 0) {
-        throw new Error("Invalid key format: key must be a non-empty array");
+      if (!key) {
+        throw new Error("Invalid key format: key must be a non-empty string");
       }
       await kv.delete(key);
       return true;

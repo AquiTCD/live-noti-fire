@@ -1,12 +1,10 @@
-import { getEnvVar } from "../types/env.ts";
-
 interface DiscordInteractionOption {
   name: string;
   type: number;
   value: string;
 }
 
-interface DiscordInteraction {
+export interface DiscordInteraction {
   type: number;
   id: string;
   token: string;
@@ -90,8 +88,24 @@ function hexToUint8Array(hex: string): Uint8Array {
 export class DiscordService {
   private static readonly API_VERSION = "10";
   private static readonly API_BASE = `https://discord.com/api/v${DiscordService.API_VERSION}`;
-  private static readonly BOT_TOKEN = getEnvVar("DISCORD_BOT_TOKEN");
-  private static readonly PUBLIC_KEY = getEnvVar("DISCORD_PUBLIC_KEY");
+
+  /**
+   * グローバルスラッシュコマンドを登録
+   */
+  static async registerGlobalCommands(env: Env, commands: unknown[]): Promise<boolean> {
+    try {
+      await this.fetchDiscordApi(env, `/applications/${env.DISCORD_CLIENT_ID}/commands`, {
+        method: "PUT",
+        body: JSON.stringify(commands),
+      });
+
+      console.log("Successfully registered global commands");
+      return true;
+    } catch (error) {
+      console.error("Error registering global commands:", error);
+      return false;
+    }
+  }
 
   /**
    * Interactionリクエストの検証
@@ -99,14 +113,15 @@ export class DiscordService {
   static async verifyInteraction(
     signature: string,
     timestamp: string,
-    body: string
+    body: string,
+    publicKeyHex: string
   ): Promise<InteractionVerificationResult> {
     try {
       // ED25519による署名検証
       const encoder = new TextEncoder();
       const signatureUint8 = hexToUint8Array(signature);
       const timestampBody = encoder.encode(timestamp + body);
-      const publicKeyUint8 = hexToUint8Array(this.PUBLIC_KEY);
+      const publicKeyUint8 = hexToUint8Array(publicKeyHex);
 
       // 公開鍵をインポート
       const publicKey = await crypto.subtle.importKey(
@@ -142,9 +157,9 @@ export class DiscordService {
   /**
    * ギルド（サーバー）の情報を取得
    */
-  static async getGuildInfo(guildId: string): Promise<{ name: string } | null> {
+  static async getGuildInfo(env: Env, guildId: string): Promise<{ name: string } | null> {
     try {
-      const response = await this.fetchDiscordApi(`/guilds/${guildId}`);
+      const response = await this.fetchDiscordApi(env, `/guilds/${guildId}`);
       return await response.json();
     } catch (error) {
       console.error(`Error fetching guild info for ${guildId}:`, error);
@@ -155,9 +170,9 @@ export class DiscordService {
   /**
    * チャンネルの情報を取得
    */
-  static async getChannelInfo(channelId: string): Promise<{ name: string } | null> {
+  static async getChannelInfo(env: Env, channelId: string): Promise<{ name: string } | null> {
     try {
-      const response = await this.fetchDiscordApi(`/channels/${channelId}`);
+      const response = await this.fetchDiscordApi(env, `/channels/${channelId}`);
       return await response.json();
     } catch (error) {
       console.error(`Error fetching channel info for ${channelId}:`, error);
@@ -168,9 +183,9 @@ export class DiscordService {
   /**
    * ギルドとチャンネルの情報をログに出力（捜査用）
    */
-  static async logInvestigativeInfo(guildId: string, channelId?: string) {
-    const guildInfo = await this.getGuildInfo(guildId);
-    const channelInfo = channelId ? await this.getChannelInfo(channelId) : null;
+  static async logInvestigativeInfo(env: Env, guildId: string, channelId?: string) {
+    const guildInfo = await this.getGuildInfo(env, guildId);
+    const channelInfo = channelId ? await this.getChannelInfo(env, channelId) : null;
 
     console.log(`[INVESTIGATION] Location identified:`);
     console.log(`  - Guild: ${guildInfo?.name || "Unknown"} (ID: ${guildId})`);
@@ -183,6 +198,7 @@ export class DiscordService {
    * Discord APIにリクエストを送信
    */
   private static async fetchDiscordApi(
+    env: Env,
     endpoint: string,
     options: RequestInit = {}
   ) {
@@ -190,7 +206,7 @@ export class DiscordService {
     const response = await fetch(url, {
       ...options,
       headers: {
-        "Authorization": `Bot ${this.BOT_TOKEN}`,
+        "Authorization": `Bot ${env.DISCORD_BOT_TOKEN}`,
         "Content-Type": "application/json",
         ...options.headers,
       },
@@ -217,6 +233,7 @@ export class DiscordService {
    * スラッシュコマンドのレスポンスを送信
    */
   static async respondToInteraction(
+    env: Env,
     interactionId: string,
     interactionToken: string,
     content: { message: string; error?: boolean }
@@ -231,6 +248,7 @@ export class DiscordService {
 
     try {
       await this.fetchDiscordApi(
+        env,
         `/interactions/${interactionId}/${interactionToken}/callback`,
         {
           method: "POST",
@@ -246,13 +264,13 @@ export class DiscordService {
   /**
    * チャンネルにメッセージを送信
    */
-  static async sendMessage(channelId: string, content: string): Promise<string> {
+  static async sendMessage(env: Env, channelId: string, content: string): Promise<string> {
     try {
-      const response = await this.fetchDiscordApi(`/channels/${channelId}/messages`, {
+      const response = await this.fetchDiscordApi(env, `/channels/${channelId}/messages`, {
         method: "POST",
         body: JSON.stringify({ content }),
       });
-      const data = await response.json();
+      const data = await response.json<{ id: string }>();
       return data.id;
     } catch (error) {
       console.error("Error sending message:", error);
@@ -263,9 +281,9 @@ export class DiscordService {
   /**
    * チャンネルにembedメッセージを送信
    */
-  static async sendEmbedMessage(channelId: string, content: string, embed: DiscordEmbed): Promise<string> {
+  static async sendEmbedMessage(env: Env, channelId: string, content: string, embed: DiscordEmbed): Promise<string> {
     try {
-      const response = await this.fetchDiscordApi(`/channels/${channelId}/messages`, {
+      const response = await this.fetchDiscordApi(env, `/channels/${channelId}/messages`, {
         method: "POST",
         body: JSON.stringify({
           content,
@@ -275,7 +293,7 @@ export class DiscordService {
           }
         }),
       });
-      const data = await response.json();
+      const data = await response.json<{ id: string }>();
       return data.id;
     } catch (error) {
       console.error("Error sending embed message:", error);
@@ -287,12 +305,14 @@ export class DiscordService {
    * メッセージにリアクションを追加
    */
   static async addReaction(
+    env: Env,
     channelId: string,
     messageId: string,
     emoji: string
   ): Promise<boolean> {
     try {
       await this.fetchDiscordApi(
+        env,
         `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
         { method: "PUT" }
       );
@@ -344,8 +364,8 @@ export class DiscordService {
   /**
    * ギルドIDが許可されているかチェック
    */
-  static isAllowedGuild(guildId?: string): boolean {
-    const allowedGuildIdsStr = Deno.env.get("DISCORD_ALLOWED_GUILD_IDS");
+  static isAllowedGuild(env: Env, guildId?: string): boolean {
+    const allowedGuildIdsStr = env.DISCORD_ALLOWED_GUILD_IDS;
     if (!allowedGuildIdsStr) {
       return true; // ホワイトリストが設定されていない場合は全て許可
     }

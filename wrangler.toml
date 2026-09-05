@@ -1,0 +1,23 @@
+name = "live-noti-fire"
+main = "src/index.ts"
+compatibility_date = "2026-08-22"
+compatibility_flags = []
+
+[[kv_namespaces]]
+binding = "KV"
+id = "26f2d0f517e04e2cb86dc1d20ab21411"
+
+# Non-secret configuration values. Secrets (DISCORD_BOT_TOKEN, TWITCH_CLIENT_SECRET,
+# X_* credentials, etc.) are NOT defined here — they are managed via
+# `wrangler secret put <NAME>` and injected at runtime as env bindings.
+[vars]
+X_POST_PREFIX = "【ライブ配信開始】"
+# The deployed Worker's own URL + /twitch/webhooks. Twitch EventSub subscriptions
+# are created pointing at this address, so it MUST match the real deployment URL
+# (workers.dev subdomain or custom domain) — update this after the first deploy.
+TWITCH_CALLBACK_URL = "https://live-noti-fire.aqui-tcd-dev.workers.dev/twitch/webhooks"
+[observability.logs]
+enabled = true
+invocation_logs = true
+[observability.traces]
+enabled = true

@@ -1,0 +1,26 @@
+{
+  "name": "live-noti-fire",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pretest": "wrangler types",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pretypecheck": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "register-commands": "node --experimental-strip-types scripts/register-commands.ts",
+    "cleanup-kv": "node --experimental-strip-types scripts/cleanup_kv.ts",
+    "sync-secrets": "bash scripts/sync-secrets.sh"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260902.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.128.0"
+  },
+  "dependencies": {
+    "hono": "^4.13.5"
+  }
+}

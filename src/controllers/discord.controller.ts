@@ -1,99 +1,52 @@
-import type { Context } from "https://deno.land/x/hono@v3.12.0/mod.ts";
-import type { UserRegistration, ApiResponse } from "../types/user.ts";
-import { userRepository } from "../repositories/user.repository.ts";
-import { TwitchService } from "../services/twitch.service.ts";
-import { DiscordService } from "../services/discord.service.ts";
-import { validateEnv, getEnvVar } from "../types/env.ts";
-import { GuildRepository } from "../repositories/guild.repository.ts";
+import type { Context } from "hono";
+import type { UserRegistration, ApiResponse } from "../types/user";
+import { userRepository } from "../repositories/user.repository";
+import { TwitchService } from "../services/twitch.service";
+import { DiscordService, type DiscordInteraction } from "../services/discord.service";
+import { GuildRepository } from "../repositories/guild.repository";
 
-interface DiscordInteraction {
-  id: string;
-  token: string;
-  type: number;
-  guild_id?: string;
-  data: {
-    name: string;
-    options?: Array<{
-      name: string;
-      type: number;
-      value: string;
-    }>;
-  };
-}
+type AppContext = Context<{ Bindings: Env }>;
+
+const SLASH_COMMANDS = [
+  {
+    name: "add-streamer",
+    description: "Twitchストリーマーの配信通知を登録します",
+    options: [
+      {
+        name: "twitch_username",
+        description: "Twitchのユーザー名",
+        type: 3, // STRING
+        required: true,
+      },
+    ],
+  },
+  {
+    name: "notify-settings",
+    description: "配信通知の設定を行います",
+    options: [
+      {
+        name: "channel",
+        description: "通知を送信するチャンネル",
+        type: 7, // CHANNEL
+        required: true,
+      },
+      {
+        name: "rules",
+        description: "通知ルール（カンマ区切りで複数指定可）",
+        type: 3, // STRING
+        required: false,
+      },
+    ],
+  },
+];
 
 export class DiscordController {
-  private static readonly API_VERSION = "10";
-
-  /**
-   * スラッシュコマンドを登録
-   */
-  static async registerCommands() {
-    const commands = [
-      {
-        name: "add-streamer",
-        description: "Twitchストリーマーの配信通知を登録します",
-        options: [
-          {
-            name: "twitch_username",
-            description: "Twitchのユーザー名",
-            type: 3, // STRING
-            required: true,
-          },
-        ],
-      },
-      {
-        name: "notify-settings",
-        description: "配信通知の設定を行います",
-        options: [
-          {
-            name: "channel",
-            description: "通知を送信するチャンネル",
-            type: 7, // CHANNEL
-            required: true,
-          },
-          {
-            name: "rules",
-            description: "通知ルール（カンマ区切りで複数指定可）",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-    ];
-
-    const applicationId = getEnvVar("DISCORD_CLIENT_ID");
-    const botToken = getEnvVar("DISCORD_BOT_TOKEN");
-    const url = `https://discord.com/api/v${this.API_VERSION}/applications/${applicationId}/commands`;
-
-    try {
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bot ${botToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(commands),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to register commands: ${error}`);
-      }
-
-      console.log("Successfully registered global commands");
-      return true;
-    } catch (error) {
-      console.error("Error registering global commands:", error);
-      return false;
-    }
-  }
-
   /**
    * コマンド登録エンドポイントの処理
    */
-  static async handleCommandRegister(c: Context) {
+  static async handleCommandRegister(c: AppContext) {
     try {
-      const success = await DiscordController.registerCommands();
+      const success = await DiscordService.registerGlobalCommands(c.env, SLASH_COMMANDS);
 
       if (!success) {
         return c.json({
@@ -118,7 +71,7 @@ export class DiscordController {
   /**
    * Discord Interactions エンドポイントの処理
    */
-  static async handleInteraction(c: Context) {
+  static async handleInteraction(c: AppContext) {
     try {
       const signature = c.req.header('x-signature-ed25519');
       const timestamp = c.req.header('x-signature-timestamp');
@@ -131,7 +84,8 @@ export class DiscordController {
       const verification = await DiscordService.verifyInteraction(
         signature,
         timestamp,
-        rawBody
+        rawBody,
+        c.env.DISCORD_PUBLIC_KEY
       );
 
       if (!verification.isValid) {
@@ -146,13 +100,14 @@ export class DiscordController {
 
       // 捜査用ログ：誰がどこでコマンドを打ったか
       if (interaction.guild_id) {
-        await DiscordService.logInvestigativeInfo(interaction.guild_id, interaction.channel_id);
+        await DiscordService.logInvestigativeInfo(c.env, interaction.guild_id, interaction.channel_id);
       }
 
       // ギルドIDのホワイトリストチェック
-      if (interaction.type !== 1 && !DiscordService.isAllowedGuild(interaction.guild_id)) {
+      if (interaction.type !== 1 && !DiscordService.isAllowedGuild(c.env, interaction.guild_id)) {
         console.warn(`Unauthorized access attempt: guild_id=${interaction.guild_id}, type=${interaction.type}`);
         await DiscordService.respondToInteraction(
+          c.env,
           interaction.id,
           interaction.token,
           {
@@ -188,58 +143,35 @@ export class DiscordController {
   /**
    * /add-streamer スラッシュコマンドの処理
    */
-  static async handleAddStreamer(c: Context, interaction: DiscordInteraction) {
-    try {
-      // 環境変数のバリデーション
-      if (!validateEnv()) {
-        throw new Error("Required environment variables are missing");
-      }
+  static async handleAddStreamer(c: AppContext, interaction: DiscordInteraction) {
+    const env = c.env;
+    const respond = (message: string, error = false) =>
+      DiscordService.respondToInteraction(env, interaction.id, interaction.token, { message, error });
 
+    try {
       const validation = DiscordService.validateCommand(interaction);
 
       if (!validation.valid || !validation.userId || !validation.twitchId) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: validation.error || "Invalid command",
-            error: true,
-          }
-        );
-
+        await respond(validation.error || "Invalid command", true);
         return c.json({ error: validation.error }, 400);
       }
 
-
       // ギルドIDが必要
       if (!interaction.guild_id) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "このコマンドはサーバー内でのみ使用できます。",
-            error: true,
-          }
-        );
+        await respond("このコマンドはサーバー内でのみ使用できます。", true);
         return c.json({ error: "Guild ID not found" }, 400);
       }
 
       // Twitchユーザー名からIDを取得
-      const twitchUserId = await TwitchService.getBroadcasterId(validation.twitchId);
+      const twitchUserId = await TwitchService.getBroadcasterId(env, validation.twitchId);
       if (!twitchUserId) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "指定されたTwitchユーザーが見つかりません。",
-            error: true,
-          }
-        );
+        await respond("指定されたTwitchユーザーが見つかりません。", true);
         return c.json({ error: "Twitch user not found" }, 400);
       }
 
       // ユーザー情報の保存
       const registrationSuccess = await userRepository.register(
+        env.KV,
         twitchUserId,
         validation.userId,
         interaction.guild_id
@@ -249,20 +181,12 @@ export class DiscordController {
       }
 
       // Twitchイベントのサブスクリプション
-      const subscriptionSuccess = await TwitchService.subscribeToStreamEvents(twitchUserId);
+      const subscriptionSuccess = await TwitchService.subscribeToStreamEvents(env, twitchUserId);
 
       if (!subscriptionSuccess) {
         // サブスクリプション失敗時は登録を維持しつつ、状態を更新
-        await userRepository.updateSubscriptionStatus(validation.userId, false);
-
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "登録は完了しましたが、Twitchイベントの設定に失敗しました。しばらく経ってから再度お試しください。",
-            error: true,
-          }
-        );
+        await userRepository.updateSubscriptionStatus(env.KV, validation.userId, false);
+        await respond("登録は完了しましたが、Twitchイベントの設定に失敗しました。しばらく経ってから再度お試しください。", true);
 
         return c.json({
           message: "Partial success: User registered but Twitch subscription failed",
@@ -275,16 +199,8 @@ export class DiscordController {
       }
 
       // 登録完了とサブスクリプション成功
-      await userRepository.updateSubscriptionStatus(validation.userId, true);
-
-      await DiscordService.respondToInteraction(
-        interaction.id,
-        interaction.token,
-        {
-          message: "登録が完了しました！配信開始時に通知が送られます。",
-          error: false,
-        }
-      );
+      await userRepository.updateSubscriptionStatus(env.KV, validation.userId, true);
+      await respond("登録が完了しました！配信開始時に通知が送られます。");
 
       const response: ApiResponse<{
         twitchUserId: string;
@@ -302,15 +218,7 @@ export class DiscordController {
       return c.json(response, 201);
     } catch (error: unknown) {
       console.error("Error in handleAddStreamer:", error);
-
-      await DiscordService.respondToInteraction(
-        interaction.id,
-        interaction.token,
-        {
-          message: "エラーが発生しました。しばらく経ってから再度お試しください。",
-          error: true,
-        }
-      );
+      await respond("エラーが発生しました。しばらく経ってから再度お試しください。", true);
 
       const response: ApiResponse<never> = {
         error: "Registration failed",
@@ -324,32 +232,22 @@ export class DiscordController {
   /**
    * /notify-settings スラッシュコマンドの処理
    */
-  static async handleNotifySettings(c: Context, interaction: DiscordInteraction) {
+  static async handleNotifySettings(c: AppContext, interaction: DiscordInteraction) {
+    const env = c.env;
+    const respond = (message: string, error = false) =>
+      DiscordService.respondToInteraction(env, interaction.id, interaction.token, { message, error });
+
     try {
       console.log("Received notify-settings command");
 
       if (!interaction.guild_id) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "このコマンドはサーバー内でのみ使用できます。",
-            error: true,
-          }
-        );
+        await respond("このコマンドはサーバー内でのみ使用できます。", true);
         return c.json({ error: "Guild ID not found" }, 400);
       }
 
       const channelOption = interaction.data.options?.find(opt => opt.name === "channel");
       if (!channelOption) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "チャンネルを指定してください。",
-            error: true,
-          }
-        );
+        await respond("チャンネルを指定してください。", true);
         return c.json({ error: "Channel not specified" }, 400);
       }
 
@@ -361,31 +259,18 @@ export class DiscordController {
       }
 
       const success = await GuildRepository.setNotifyChannel(
+        env.KV,
         interaction.guild_id,
         channelOption.value,
         rules
       );
 
       if (!success) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "チャンネルの設定に失敗しました。",
-            error: true,
-          }
-        );
+        await respond("チャンネルの設定に失敗しました。", true);
         return c.json({ error: "Failed to set notify channel" }, 500);
       }
 
-      await DiscordService.respondToInteraction(
-        interaction.id,
-        interaction.token,
-        {
-          message: "配信通知チャンネルを設定しました。",
-          error: false,
-        }
-      );
+      await respond("配信通知チャンネルを設定しました。");
 
       return c.json({
         message: "Notification channel set successfully",
@@ -397,14 +282,7 @@ export class DiscordController {
       console.error("Error in handleLiveNotify:", error);
 
       if (interaction) {
-        await DiscordService.respondToInteraction(
-          interaction.id,
-          interaction.token,
-          {
-            message: "エラーが発生しました。",
-            error: true,
-          }
-        );
+        await respond("エラーが発生しました。", true);
       }
 
       return c.json({

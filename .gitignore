@@ -1,9 +1,6 @@
 # Environment variables
 .env
 
-# Deno
-.deno/
-
 # Editor
 .vscode/
 .idea/
@@ -19,3 +16,14 @@ delete.sh
 # Docs
 docs/notes/
 docs/ai/
+
+# Scratch workspace
+.scratch/
+
+# pnpm
+.pnpm-store/
+node_modules/
+
+# wrangler
+.wrangler/
+worker-configuration.d.ts
