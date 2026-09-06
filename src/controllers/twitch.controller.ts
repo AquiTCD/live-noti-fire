@@ -145,6 +145,10 @@ export class TwitchController {
             }
           }
 
+          // TwitchユーザーIDに紐づくDiscordユーザー情報を取得
+          // (broadcasterIdはギルドごとに変わらないため、ループの外で1回だけ取得する)
+          const userPromise = userRepository.getByTwitchId(kv, broadcasterId);
+
           // 各ギルドに通知を送信
           const notificationPromises = guildIds.map(async (guildId) => {
             try {
@@ -178,8 +182,7 @@ export class TwitchController {
               // embedメッセージを作成
               const embed = buildStreamEmbed(streamInfo, streamUrl);
 
-              // TwitchユーザーIDに紐づくDiscordユーザー情報を取得
-              const user = await userRepository.getByTwitchId(kv, broadcasterId);
+              const user = await userPromise;
               if (!user) {
                 console.log(`No Discord user found for Twitch user ${broadcasterId}`);
                 return;
