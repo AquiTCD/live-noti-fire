@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { DiscordService } from "../../../src/services/discord.service";
+import { DiscordService, type DiscordInteraction } from "../../../src/services/discord.service";
+
+function buildAddStreamerInteraction(
+  options: Array<{ name: string; type: number; value: string }>,
+  invokerId = "invoker-id"
+): DiscordInteraction {
+  return {
+    type: 2,
+    id: "interaction-id",
+    token: "interaction-token",
+    data: { name: "add-streamer", options },
+    user: { id: invokerId },
+  };
+}
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -56,5 +69,34 @@ describe("DiscordService.verifyInteraction (Ed25519)", () => {
 
     const result = await DiscordService.verifyInteraction(signature, timestamp, body, wrongPubHex);
     expect(result.isValid).toBe(false);
+  });
+});
+
+describe("DiscordService.validateCommand (/add-streamer)", () => {
+  it("mentions the command invoker when no 'user' option is given (self-registration)", () => {
+    const interaction = buildAddStreamerInteraction(
+      [{ name: "twitch_username", type: 3, value: "some_streamer" }],
+      "invoker-id"
+    );
+
+    const result = DiscordService.validateCommand(interaction);
+
+    expect(result.valid).toBe(true);
+    expect(result.userId).toBe("invoker-id");
+  });
+
+  it("mentions the specified 'user' option instead of the invoker (proxy registration)", () => {
+    const interaction = buildAddStreamerInteraction(
+      [
+        { name: "twitch_username", type: 3, value: "some_streamer" },
+        { name: "user", type: 6, value: "actual-streamer-discord-id" },
+      ],
+      "invoker-id"
+    );
+
+    const result = DiscordService.validateCommand(interaction);
+
+    expect(result.valid).toBe(true);
+    expect(result.userId).toBe("actual-streamer-discord-id");
   });
 });

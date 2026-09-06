@@ -36,6 +36,12 @@ const commands: Command[] = [
         type: 3, // STRING
         required: true,
       },
+      {
+        name: "user",
+        description: "代理登録する場合、実際の配信者を指定してください（省略時はコマンドを打った本人）",
+        type: 6, // USER
+        required: false,
+      },
     ],
   },
   {
