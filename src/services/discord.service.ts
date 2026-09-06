@@ -340,8 +340,13 @@ export class DiscordService {
       return { valid: false, error: "Unknown command" };
     }
 
-    // ユーザーIDはuser直下かmember.user内にある
-    const userId = interaction.user?.id || interaction.member?.user.id;
+    // 代理登録用: "user" オプションが指定されていれば、そちらを優先する
+    // (未指定の場合は今まで通りコマンドを打った本人が対象)
+    const specifiedUserId = interaction.data.options?.find(
+      (opt: DiscordInteractionOption) => opt.name === "user"
+    )?.value;
+    const invokerId = interaction.user?.id || interaction.member?.user.id;
+    const userId = specifiedUserId || invokerId;
     if (!userId) {
       return { valid: false, error: "User ID not found" };
     }
